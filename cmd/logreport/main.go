@@ -24,6 +24,7 @@ type sumData struct {
 
 type times []time.Time
 
+// time sort
 func (t times) Len() int {
 	return len(t)
 }
@@ -132,6 +133,7 @@ func readLog(sendMetrics chan []graphite.Metric) {
 			continue
 		}
 		t, err := time.Parse(conf.TimeParse, string(log[conf.TimeColumn]))
+		t = t.Truncate(conf.Report.Interval)
 		if err != nil {
 			continue
 		}
