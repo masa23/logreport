@@ -1,0 +1,66 @@
+# Read log file path. Posisiton file path.
+LogFile: "/var/log/nginx/access.log"
+PosFile: "/var/log/nginx/access.log.pos"
+
+TimeColumn: "time_local"
+TimeParse: "02/Jan/2006:15:04:05 -0700"
+
+# metric send graphite
+Graphite:
+  Host: "graphite.example.jp"
+  Port: 2003
+  Prefix: "sec.logreport.local"
+  SendBuffer: 1000
+
+# Report
+Report:
+ Interval: 1s
+ Delay: 10s
+
+# Summary Metrics
+Metrics:
+  - Description: "status count"
+    ItemName: "http.status"
+    Type: "itemCount"
+    LogColumn: "status"
+    Filter:
+      - LogColumn: "scheme"
+        Value: "http"
+        Bool: true
+
+  - Description: "status count"
+    ItemName: "https.status"
+    Type: "itemCount"
+    LogColumn: "status"
+    Filter:
+      - LogColumn: "scheme"
+        Value: "https"
+        Bool: true
+
+  - Discription: "http request count"
+    ItemName: "http.request"
+    Type: "count"
+    LogColumn: "scheme"
+    Filter:
+      - LogColumn: "scheme"
+        Value: "http"
+        Bool: true
+
+  - Discription: "https request count"
+    ItemName: "https.request"
+    Type: "count"
+    LogColumn: "scheme"
+    Filter:
+      - LogColumn: "scheme"
+        Value: "https"
+        Bool: true
+
+  - Description: "hit counter"
+    ItemName: "hit-count"
+    Type: "itemCount"
+    LogColumn: "upstream_cache_status"
+
+  - Description: "bytes sent"
+    ItemName: "bytes_sent"
+    Type: "sum"
+    LogColumn: "bytes_sent"

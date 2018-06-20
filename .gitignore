@@ -1,0 +1,5 @@
+cmd/logreport/logreport
+cmd/logreport/config.yaml
+cmd/logreport/*.log
+cmd/logreport/*.pos
+.vscode/
