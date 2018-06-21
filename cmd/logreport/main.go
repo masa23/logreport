@@ -48,30 +48,32 @@ func main() {
 		panic(err)
 	}
 	sendMetrics := make(chan []graphite.Metric, conf.Graphite.SendBuffer)
+	go sendGraphite(sendMetrics)
+	readLog(sendMetrics)
+}
+
+func sendGraphite(sendMetrics chan []graphite.Metric) {
 	g, err := graphite.NewGraphite(conf.Graphite.Host, conf.Graphite.Port)
 	if err != nil {
 		panic(err)
 	}
-	go func() {
-		for {
-			metrics := <-sendMetrics
-			if debug {
-				fmt.Printf("sendmetric len=%d\n", len(metrics))
-			}
-			err := g.SendMetrics(metrics)
-			if err != nil {
-				g.Disconnect()
-				for {
-					time.Sleep(time.Second)
-					g, err = graphite.NewGraphite(conf.Graphite.Host, conf.Graphite.Port)
-					if err == nil {
-						break
-					}
+	for {
+		metrics := <-sendMetrics
+		if debug {
+			fmt.Printf("sendmetric len=%d\n", len(metrics))
+		}
+		err := g.SendMetrics(metrics)
+		if err != nil {
+			g.Disconnect()
+			for {
+				time.Sleep(time.Second)
+				g, err = graphite.NewGraphite(conf.Graphite.Host, conf.Graphite.Port)
+				if err == nil {
+					break
 				}
 			}
 		}
-	}()
-	readLog(sendMetrics)
+	}
 }
 
 func readLog(sendMetrics chan []graphite.Metric) {
