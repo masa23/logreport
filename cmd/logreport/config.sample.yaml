@@ -16,6 +16,7 @@ Graphite:
 Report:
  Interval: 1s
  Delay: 10s
+ InitialReadPositionEnd: true
 
 # Summary Metrics
 Metrics:

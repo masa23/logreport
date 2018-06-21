@@ -16,6 +16,7 @@ import (
 )
 
 var conf logreport.Config
+var debug bool
 
 type sumData struct {
 	sum       map[string]int64
@@ -39,6 +40,7 @@ func main() {
 	var configFile string
 	var err error
 	flag.StringVar(&configFile, "config", "./config.yaml", "config file path")
+	flag.BoolVar(&debug, "debug", false, "debug")
 	flag.Parse()
 
 	conf, err = logreport.ConfigLoad(configFile)
@@ -53,6 +55,9 @@ func main() {
 	go func() {
 		for {
 			metrics := <-sendMetrics
+			if debug {
+				fmt.Printf("sendmetric len=%d\n", len(metrics))
+			}
 			err := g.SendMetrics(metrics)
 			if err != nil {
 				g.Disconnect()
@@ -75,7 +80,7 @@ func readLog(sendMetrics chan []graphite.Metric) {
 	if err != nil {
 		panic(err)
 	}
-	tail.InitialReadPositionEnd = true
+	tail.InitialReadPositionEnd = false
 
 	lock := new(sync.Mutex)
 	timer := time.NewTimer(0)
@@ -101,6 +106,9 @@ func readLog(sendMetrics chan []graphite.Metric) {
 				for ts := range sum {
 					if !ts.After(tl[0].Add(-conf.Report.Delay)) {
 						delete(sum, ts)
+						if debug {
+							fmt.Printf("delete metric time=%s\n", ts.String())
+						}
 					}
 				}
 			}
@@ -108,6 +116,9 @@ func readLog(sendMetrics chan []graphite.Metric) {
 			var metrics []graphite.Metric
 			for ts, m := range sum {
 				if !now.Add(-conf.Report.Interval).Before(m.timestamp) {
+					if debug {
+						fmt.Printf("continue time=%s\n", m.timestamp.String())
+					}
 					continue
 				}
 				for key, value := range m.sum {
@@ -118,7 +129,9 @@ func readLog(sendMetrics chan []graphite.Metric) {
 					})
 				}
 			}
-			sendMetrics <- metrics
+			if len(metrics) > 0 {
+				sendMetrics <- metrics
+			}
 			t = t.Truncate(conf.Report.Interval).Add(-conf.Report.Interval)
 			lock.Unlock()
 		}
