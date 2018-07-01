@@ -4,9 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"sort"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/hnakamur/ltsvlog"
@@ -18,7 +20,10 @@ import (
 	"github.com/masa23/logreport"
 )
 
-var conf logreport.Config
+var (
+	conf     *logreport.Config
+	confLock = new(sync.Mutex)
+)
 
 type sumData struct {
 	sum       map[string]int64
@@ -65,32 +70,6 @@ func main() {
 
 	sendMetrics := make(chan []graphite.Metric, conf.Graphite.SendBuffer)
 
-	go sendGraphite(sendMetrics)
-	readLog(sendMetrics)
-	/*
-		for {
-			signalChan := make(chan os.Signal, 1)
-			signal.Notify(signalChan, syscall.SIGHUP)
-
-			switch <-signalChan {
-			case syscall.SIGHUP:
-				newConf, err := logreport.ConfigLoad(configFile)
-				if err != nil {
-					// エラー出してcontinue
-					ltsvlog.Logger.Err(ltsvlog.WrapErr(err, func(err error) error {
-						return fmt.Errorf("%s err=%+v", "reload error", err)
-					}))
-					continue
-				}
-				conf = newConf
-				ltsvlog.Logger.Info().String("msg", "reload logreport").Log()
-			}
-		}
-	*/
-}
-
-func sendGraphite(sendMetrics chan []graphite.Metric) {
-	ltsvlog.Logger.Debug().String("msg", "start sendGraphite go routine").Log()
 	g, err := graphite.NewGraphite(conf.Graphite.Host, conf.Graphite.Port)
 	if err != nil {
 		ltsvlog.Logger.Err(ltsvlog.WrapErr(err, func(err error) error {
@@ -98,6 +77,61 @@ func sendGraphite(sendMetrics chan []graphite.Metric) {
 		}))
 		os.Exit(1)
 	}
+
+	go sendGraphite(sendMetrics, g)
+	go readLog(sendMetrics)
+
+	for {
+		signalChan := make(chan os.Signal, 1)
+		signal.Notify(signalChan, syscall.SIGHUP)
+
+		switch <-signalChan {
+		case syscall.SIGHUP:
+			newConf, err := logreport.ConfigLoad(configFile)
+			if err != nil {
+				// エラー出してcontinue
+				ltsvlog.Logger.Err(ltsvlog.WrapErr(err, func(err error) error {
+					return fmt.Errorf("%s err=%+v", "reload error", err)
+				}))
+				continue
+			}
+
+			// ログのリオープン
+			newLogger := new(ltsvlog.LTSVLogger)
+			if newConf.ErrorLogFile != "" {
+				newLogFile, err := os.OpenFile(newConf.ErrorLogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+				if err != nil {
+					ltsvlog.Logger.Err(ltsvlog.WrapErr(err, func(err error) error {
+						return fmt.Errorf("%s, err=%+v", "log file reopen faild", err)
+					}))
+					continue
+				}
+				defer newLogFile.Close()
+				newLogger = ltsvlog.NewLTSVLogger(newLogFile, newConf.Debug)
+			} else {
+				newLogger = ltsvlog.NewLTSVLogger(os.Stdout, newConf.Debug)
+			}
+			// graphiteのリオープン
+			newGraphite, err := graphite.NewGraphite(conf.Graphite.Host, conf.Graphite.Port)
+			if err != nil {
+				ltsvlog.Logger.Err(ltsvlog.WrapErr(err, func(err error) error {
+					return fmt.Errorf("%s err=%+v", "graphite connection error", err)
+				}))
+				continue
+			}
+
+			confLock.Lock()
+			ltsvlog.Logger = newLogger
+			g = newGraphite
+			conf = newConf
+			confLock.Unlock()
+			ltsvlog.Logger.Info().String("msg", "reload logreport").Log()
+		}
+	}
+}
+
+func sendGraphite(sendMetrics chan []graphite.Metric, g *graphite.Graphite) {
+	ltsvlog.Logger.Debug().String("msg", "start sendGraphite go routine").Log()
 	for {
 		metrics := <-sendMetrics
 		ltsvlog.Logger.Debug().Sprintf("msg", "sendmetric len=%d", len(metrics)).Log()

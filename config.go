@@ -59,8 +59,8 @@ type configMetricsFilter struct {
 }
 
 // ConfigLoad is loading yaml config
-func ConfigLoad(file string) (Config, error) {
-	var conf Config
+func ConfigLoad(file string) (*Config, error) {
+	conf := new(Config)
 	fd, err := os.Open(file)
 	if err != nil {
 		return conf, err
@@ -80,7 +80,7 @@ func ConfigLoad(file string) (Config, error) {
 			return conf, fmt.Errorf("metric type %s is unsupported", metric.Type)
 		}
 	}
-	confLogColumns(&conf)
+	confLogColumns(conf)
 	return conf, nil
 }
 
