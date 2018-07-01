@@ -3,10 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/hnakamur/ltsvlog"
 
 	"github.com/marpaia/graphite-golang"
 
@@ -16,7 +19,6 @@ import (
 )
 
 var conf logreport.Config
-var debug bool
 
 type sumData struct {
 	sum       map[string]int64
@@ -40,28 +42,63 @@ func main() {
 	var configFile string
 	var err error
 	flag.StringVar(&configFile, "config", "./config.yaml", "config file path")
-	flag.BoolVar(&debug, "debug", false, "debug")
 	flag.Parse()
 
 	conf, err = logreport.ConfigLoad(configFile)
 	if err != nil {
 		panic(err)
 	}
+
+	// Error Log
+	if conf.ErrorLogFile != "" {
+		logFile, err := os.OpenFile(conf.ErrorLogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+		if err != nil {
+			panic(err)
+		}
+		ltsvlog.Logger = ltsvlog.NewLTSVLogger(logFile, conf.Debug)
+	} else {
+		ltsvlog.Logger = ltsvlog.NewLTSVLogger(os.Stdout, conf.Debug)
+	}
+	ltsvlog.Logger.Info().String("msg", "start logreport").Log()
+
 	sendMetrics := make(chan []graphite.Metric, conf.Graphite.SendBuffer)
 	go sendGraphite(sendMetrics)
 	readLog(sendMetrics)
+
+	/*
+		for {
+			signalChan := make(chan os.Signal, 1)
+			signal.Notify(signalChan, syscall.SIGHUP)
+
+			switch <-signalChan {
+			case syscall.SIGHUP:
+				newConf, err := logreport.ConfigLoad(configFile)
+				if err != nil {
+					// エラー出してcontinue
+					ltsvlog.Logger.Err(ltsvlog.WrapErr(err, func(err error) error {
+						return fmt.Errorf("%s err=%+v", "reload error", err)
+					}))
+					continue
+				}
+				pp.Println(newConf)
+				// リロード処理を書く
+				ltsvlog.Logger.Info().String("msg", "reload logreport").Log()
+			}
+		}
+	*/
 }
 
 func sendGraphite(sendMetrics chan []graphite.Metric) {
 	g, err := graphite.NewGraphite(conf.Graphite.Host, conf.Graphite.Port)
 	if err != nil {
-		panic(err)
+		ltsvlog.Err(ltsvlog.WrapErr(err, func(err error) error {
+			return fmt.Errorf("%s err=%+v", "graphite connection error", err)
+		}))
+		os.Exit(1)
 	}
 	for {
 		metrics := <-sendMetrics
-		if debug {
-			fmt.Printf("sendmetric len=%d\n", len(metrics))
-		}
+		ltsvlog.Logger.Debug().Sprintf("msg", "sendmetric len=%d", len(metrics))
 		err := g.SendMetrics(metrics)
 		if err != nil {
 			g.Disconnect()
@@ -80,7 +117,10 @@ func readLog(sendMetrics chan []graphite.Metric) {
 	sum := make(map[time.Time]*sumData)
 	tail, err := gotail.Open(conf.LogFile, conf.PosFile)
 	if err != nil {
-		panic(err)
+		ltsvlog.Logger.Err(ltsvlog.WrapErr(err, func(err error) error {
+			return fmt.Errorf("%s logFile=%s posFile=%s err=%+v", "tail logfile faild", conf.LogFile, conf.PosFile, err)
+		}))
+		os.Exit(1)
 	}
 	tail.InitialReadPositionEnd = false
 
@@ -108,9 +148,7 @@ func readLog(sendMetrics chan []graphite.Metric) {
 				for ts := range sum {
 					if !ts.After(tl[0].Add(-conf.Report.Delay)) {
 						delete(sum, ts)
-						if debug {
-							fmt.Printf("delete metric time=%s\n", ts.String())
-						}
+						ltsvlog.Logger.Debug().Sprintf("msg", "delete metric time=%s", ts.String())
 					}
 				}
 			}
@@ -118,9 +156,7 @@ func readLog(sendMetrics chan []graphite.Metric) {
 			var metrics []graphite.Metric
 			for ts, m := range sum {
 				if !now.Add(-conf.Report.Interval).Before(m.timestamp) {
-					if debug {
-						fmt.Printf("continue time=%s\n", m.timestamp.String())
-					}
+					ltsvlog.Logger.Debug().Sprintf("msg", "metric continue time=%s", m.timestamp.String())
 					continue
 				}
 				for key, value := range m.sum {

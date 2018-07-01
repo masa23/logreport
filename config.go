@@ -19,14 +19,17 @@ const (
 
 // Config is confiure struct
 type Config struct {
-	LogFile    string          `yaml:"LogFile"`
-	PosFile    string          `yaml:"PosFile"`
-	Graphite   configGraphite  `yaml:"Graphite"`
-	Report     configReport    `yaml:"Report"`
-	Metrics    []configMetrics `yaml:"Metrics"`
-	TimeColumn string          `yaml:"TimeColumn"`
-	TimeParse  string          `yaml:"TimeParse"`
-	LogColumns [][]byte
+	Debug        bool            `yaml:"Debug"`
+	PidFile      string          `yaml:"PidFile"`
+	ErrorLogFile string          `yaml:"ErrorLogFile"`
+	LogFile      string          `yaml:"LogFile"`
+	PosFile      string          `yaml:"PosFile"`
+	Graphite     configGraphite  `yaml:"Graphite"`
+	Report       configReport    `yaml:"Report"`
+	Metrics      []configMetrics `yaml:"Metrics"`
+	TimeColumn   string          `yaml:"TimeColumn"`
+	TimeParse    string          `yaml:"TimeParse"`
+	LogColumns   [][]byte
 }
 
 type configGraphite struct {

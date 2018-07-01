@@ -1,3 +1,8 @@
+# Daemon option
+Debug: false
+PidFile: "/var/run/logreport.pid"
+ErrorLogFile: "/var/log/logreport.log"
+
 # Read log file path. Posisiton file path.
 LogFile: "/var/log/nginx/access.log"
 PosFile: "/var/log/nginx/access.log.pos"
