@@ -55,16 +55,18 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		defer logFile.Close()
 		ltsvlog.Logger = ltsvlog.NewLTSVLogger(logFile, conf.Debug)
 	} else {
 		ltsvlog.Logger = ltsvlog.NewLTSVLogger(os.Stdout, conf.Debug)
 	}
-	ltsvlog.Logger.Info().String("msg", "start logreport").Log()
+	pid := os.Getpid()
+	ltsvlog.Logger.Info().Sprintf("msg", "start logreport pid=%d", pid).Log()
 
 	sendMetrics := make(chan []graphite.Metric, conf.Graphite.SendBuffer)
+
 	go sendGraphite(sendMetrics)
 	readLog(sendMetrics)
-
 	/*
 		for {
 			signalChan := make(chan os.Signal, 1)
@@ -80,8 +82,7 @@ func main() {
 					}))
 					continue
 				}
-				pp.Println(newConf)
-				// リロード処理を書く
+				conf = newConf
 				ltsvlog.Logger.Info().String("msg", "reload logreport").Log()
 			}
 		}
@@ -89,9 +90,10 @@ func main() {
 }
 
 func sendGraphite(sendMetrics chan []graphite.Metric) {
+	ltsvlog.Logger.Debug().String("msg", "start sendGraphite go routine").Log()
 	g, err := graphite.NewGraphite(conf.Graphite.Host, conf.Graphite.Port)
 	if err != nil {
-		ltsvlog.Err(ltsvlog.WrapErr(err, func(err error) error {
+		ltsvlog.Logger.Err(ltsvlog.WrapErr(err, func(err error) error {
 			return fmt.Errorf("%s err=%+v", "graphite connection error", err)
 		}))
 		os.Exit(1)
@@ -114,6 +116,7 @@ func sendGraphite(sendMetrics chan []graphite.Metric) {
 }
 
 func readLog(sendMetrics chan []graphite.Metric) {
+	ltsvlog.Logger.Debug().String("msg", "start readLog go routine").Log()
 	sum := make(map[time.Time]*sumData)
 	tail, err := gotail.Open(conf.LogFile, conf.PosFile)
 	if err != nil {
@@ -148,7 +151,7 @@ func readLog(sendMetrics chan []graphite.Metric) {
 				for ts := range sum {
 					if !ts.After(tl[0].Add(-conf.Report.Delay)) {
 						delete(sum, ts)
-						ltsvlog.Logger.Debug().Sprintf("msg", "delete metric time=%s", ts.String())
+						ltsvlog.Logger.Debug().Sprintf("msg", "delete metric time=%s", ts.String()).Log()
 					}
 				}
 			}
@@ -156,7 +159,7 @@ func readLog(sendMetrics chan []graphite.Metric) {
 			var metrics []graphite.Metric
 			for ts, m := range sum {
 				if !now.Add(-conf.Report.Interval).Before(m.timestamp) {
-					ltsvlog.Logger.Debug().Sprintf("msg", "metric continue time=%s", m.timestamp.String())
+					ltsvlog.Logger.Debug().Sprintf("msg", "metric continue time=%s", m.timestamp.String()).Log()
 					continue
 				}
 				for key, value := range m.sum {
