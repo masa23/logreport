@@ -100,7 +100,7 @@ func sendGraphite(sendMetrics chan []graphite.Metric) {
 	}
 	for {
 		metrics := <-sendMetrics
-		ltsvlog.Logger.Debug().Sprintf("msg", "sendmetric len=%d", len(metrics))
+		ltsvlog.Logger.Debug().Sprintf("msg", "sendmetric len=%d", len(metrics)).Log()
 		err := g.SendMetrics(metrics)
 		if err != nil {
 			g.Disconnect()
