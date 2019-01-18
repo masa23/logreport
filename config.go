@@ -14,7 +14,11 @@ import (
 const (
 	MetricTypeCount     = "count"
 	MetricTypeSum       = "sum"
+	MetricTypeMax       = "max"
+	MetricTypeMin       = "min"
 	MetricTypeItemCount = "itemCount"
+	DataTypeInt         = "int"
+	DataTypeFloat       = "float"
 )
 
 // Config is confiure struct
@@ -48,6 +52,7 @@ type configMetrics struct {
 	Description string                `yaml:"Description"`
 	ItemName    string                `yaml:"ItemName"`
 	Type        string                `yaml:"Type"`
+	DataType    string                `yaml:"DataType"`
 	LogColumn   string                `yaml:"LogColumn"`
 	Filter      []configMetricsFilter `yaml:"Filter"`
 }
@@ -79,6 +84,12 @@ func ConfigLoad(file string) (*Config, error) {
 		if !isValidMetricType(metric.Type) {
 			return conf, fmt.Errorf("metric type %s is unsupported", metric.Type)
 		}
+		if metric.DataType == "" {
+			metric.DataType = DataTypeInt
+		}
+		if !isValidDataType(metric.DataType) {
+			return conf, fmt.Errorf("data type %s is unsupported", metric.DataType)
+		}
 	}
 	confLogColumns(conf)
 	return conf, nil
@@ -102,8 +113,15 @@ func confLogColumns(conf *Config) {
 }
 
 func isValidMetricType(str string) bool {
-	if str == MetricTypeCount || str == MetricTypeSum ||
-		str == MetricTypeItemCount {
+	if str == MetricTypeCount || str == MetricTypeSum || str == MetricTypeMax ||
+		str == MetricTypeMin || str == MetricTypeItemCount {
+		return true
+	}
+	return false
+}
+
+func isValidDataType(str string) bool {
+	if str == DataTypeInt || str == DataTypeFloat {
 		return true
 	}
 	return false

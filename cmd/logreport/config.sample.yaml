@@ -70,3 +70,15 @@ Metrics:
     ItemName: "bytes_sent"
     Type: "sum"
     LogColumn: "bytes_sent"
+
+  - Description: "max upstream request time"
+    ItemName: "upstream_request_time_max"
+    Type: "max"
+    DataType: "float"
+    LogColumn: "upstream_request_time"
+
+  - Description: "min upstream request time"
+    ItemName: "upstream_request_time_max"
+    Type: "min"
+    DataType: "float"
+    LogColumn: "upstream_request_time"

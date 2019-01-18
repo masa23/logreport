@@ -26,8 +26,10 @@ var (
 )
 
 type sumData struct {
-	sum       map[string]int64
+	Int       map[string]int64
+	Float     map[string]float64
 	timestamp time.Time
+	new       bool
 }
 
 type times []time.Time
@@ -189,17 +191,23 @@ func readLog(sendMetrics chan []graphite.Metric) {
 					}
 				}
 			}
-
 			var metrics []graphite.Metric
 			for ts, m := range sum {
 				if !now.Add(-conf.Report.Interval).Before(m.timestamp) {
 					ltsvlog.Logger.Debug().Sprintf("msg", "metric continue time=%s", m.timestamp.String()).Log()
 					continue
 				}
-				for key, value := range m.sum {
+				for key, value := range m.Int {
 					metrics = append(metrics, graphite.Metric{
 						Name:      fmt.Sprintf("%s.%s", conf.Graphite.Prefix, key),
 						Value:     strconv.FormatInt(value, 10),
+						Timestamp: ts.Unix(),
+					})
+				}
+				for key, value := range m.Float {
+					metrics = append(metrics, graphite.Metric{
+						Name:      fmt.Sprintf("%s.%s", conf.Graphite.Prefix, key),
+						Value:     strconv.FormatFloat(value, 'f', 3, 64),
 						Timestamp: ts.Unix(),
 					})
 				}
@@ -229,8 +237,10 @@ func readLog(sendMetrics chan []graphite.Metric) {
 		lock.Lock()
 		if _, ok := sum[t]; !ok {
 			sum[t] = &sumData{
-				sum:       make(map[string]int64),
+				Int:       make(map[string]int64),
+				Float:     make(map[string]float64),
 				timestamp: time.Now(),
+				new:       true,
 			}
 		}
 		sum[t].timestamp = time.Now()
@@ -258,14 +268,53 @@ func readLog(sendMetrics chan []graphite.Metric) {
 
 			switch metric.Type {
 			case logreport.MetricTypeCount:
-				sum[t].sum[metric.ItemName]++
+				sum[t].Int[metric.ItemName]++
 			case logreport.MetricTypeSum:
-				num, _ := strconv.ParseInt(string(log[metric.LogColumn]), 10, 64)
-				sum[t].sum[metric.ItemName] += num
+				if metric.DataType == logreport.DataTypeInt {
+					num, _ := strconv.ParseInt(string(log[metric.LogColumn]), 10, 64)
+					sum[t].Int[metric.ItemName] += num
+				} else if metric.DataType == logreport.DataTypeFloat {
+					num, _ := strconv.ParseFloat(string(log[metric.LogColumn]), 64)
+					sum[t].Float[metric.ItemName] += num
+				}
+			case logreport.MetricTypeMax:
+				if metric.DataType == logreport.DataTypeInt {
+					num, _ := strconv.ParseInt(string(log[metric.LogColumn]), 10, 64)
+					if sum[t].Int[metric.ItemName] < num {
+						sum[t].Int[metric.ItemName] = num
+					}
+				} else if metric.DataType == logreport.DataTypeFloat {
+					num, _ := strconv.ParseFloat(string(log[metric.LogColumn]), 64)
+					if sum[t].Float[metric.ItemName] < num {
+						sum[t].Float[metric.ItemName] = num
+					}
+				}
+			case logreport.MetricTypeMin:
+				if metric.DataType == logreport.DataTypeInt {
+					num, _ := strconv.ParseInt(string(log[metric.LogColumn]), 10, 64)
+					if sum[t].new {
+						sum[t].Int[metric.ItemName] = num
+					} else {
+						if sum[t].Int[metric.ItemName] > num {
+							sum[t].Int[metric.ItemName] = num
+						}
+					}
+				} else if metric.DataType == logreport.DataTypeFloat {
+					num, _ := strconv.ParseFloat(string(log[metric.LogColumn]), 64)
+					if sum[t].new {
+						sum[t].Float[metric.ItemName] = num
+					} else {
+						if sum[t].Float[metric.ItemName] > num {
+							sum[t].Float[metric.ItemName] = num
+						}
+					}
+				}
 			case logreport.MetricTypeItemCount:
-				sum[t].sum[metric.ItemName+"."+string(log[metric.LogColumn])]++
+				sum[t].Int[metric.ItemName+"."+string(log[metric.LogColumn])]++
 			}
+
 		}
+		sum[t].new = false
 		lock.Unlock()
 	}
 }
