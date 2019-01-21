@@ -270,7 +270,7 @@ func readLog(sendMetrics chan []graphite.Metric) {
 			case logreport.MetricTypeCount:
 				sum[t].Int[metric.ItemName]++
 			case logreport.MetricTypeSum:
-				if metric.DataType == logreport.DataTypeInt {
+				if metric.DataType == logreport.DataTypeInt || metric.DataType == "" {
 					num, _ := strconv.ParseInt(string(log[metric.LogColumn]), 10, 64)
 					sum[t].Int[metric.ItemName] += num
 				} else if metric.DataType == logreport.DataTypeFloat {
