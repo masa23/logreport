@@ -220,9 +220,8 @@ func readLog(sendMetrics chan []graphite.Metric) {
 		}
 	}()
 
-	tail.Scan()
-	for {
-		buf := tail.TailBytes()
+	for tail.Scan() {
+		buf := tail.Bytes()
 		log := logreport.ParseLTSV(buf, conf.LogColumns)
 
 		if log[conf.TimeColumn] == nil {
@@ -316,5 +315,12 @@ func readLog(sendMetrics chan []graphite.Metric) {
 		}
 		sum[t].new = false
 		lock.Unlock()
+	}
+
+	if err = tail.Err(); err != nil {
+		ltsvlog.Logger.Err(ltsvlog.WrapErr(err, func(err error) error {
+			return fmt.Errorf("%s err=%+v", "tail log err", err)
+		}))
+		os.Exit(1)
 	}
 }
