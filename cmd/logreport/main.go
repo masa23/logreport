@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/hnakamur/errstack"
 	"github.com/hnakamur/ltsvlog"
 
 	"github.com/marpaia/graphite-golang"
@@ -68,15 +69,13 @@ func main() {
 		ltsvlog.Logger = ltsvlog.NewLTSVLogger(os.Stdout, conf.Debug)
 	}
 	pid := os.Getpid()
-	ltsvlog.Logger.Info().Sprintf("msg", "start logreport pid=%d", pid).Log()
+	ltsvlog.Logger.Info().Fmt("msg", "start logreport pid=%d", pid).Log()
 
 	sendMetrics := make(chan []graphite.Metric, conf.Graphite.SendBuffer)
 
 	g, err := graphite.NewGraphite(conf.Graphite.Host, conf.Graphite.Port)
 	if err != nil {
-		ltsvlog.Logger.Err(ltsvlog.WrapErr(err, func(err error) error {
-			return fmt.Errorf("%s err=%+v", "graphite connection error", err)
-		}))
+		ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("%s err=%+v", "graphite connection error", err)))
 		os.Exit(1)
 	}
 
@@ -92,9 +91,7 @@ func main() {
 			newConf, err := logreport.ConfigLoad(configFile)
 			if err != nil {
 				// エラー出してcontinue
-				ltsvlog.Logger.Err(ltsvlog.WrapErr(err, func(err error) error {
-					return fmt.Errorf("%s err=%+v", "reload error", err)
-				}))
+				ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("%s err=%+v", "reload error", err)))
 				continue
 			}
 
@@ -103,9 +100,7 @@ func main() {
 			if newConf.ErrorLogFile != "" {
 				newLogFile, err := os.OpenFile(newConf.ErrorLogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 				if err != nil {
-					ltsvlog.Logger.Err(ltsvlog.WrapErr(err, func(err error) error {
-						return fmt.Errorf("%s, err=%+v", "log file reopen faild", err)
-					}))
+					ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("%s err=%+v", "log file reopen faild", err)))
 					continue
 				}
 				defer newLogFile.Close()
@@ -116,9 +111,7 @@ func main() {
 			// graphiteのリオープン
 			newGraphite, err := graphite.NewGraphite(conf.Graphite.Host, conf.Graphite.Port)
 			if err != nil {
-				ltsvlog.Logger.Err(ltsvlog.WrapErr(err, func(err error) error {
-					return fmt.Errorf("%s err=%+v", "graphite connection error", err)
-				}))
+				ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("%s err=%+v", "graphite connection error", err)))
 				continue
 			}
 
@@ -136,7 +129,7 @@ func sendGraphite(sendMetrics chan []graphite.Metric, g *graphite.Graphite) {
 	ltsvlog.Logger.Debug().String("msg", "start sendGraphite go routine").Log()
 	for {
 		metrics := <-sendMetrics
-		ltsvlog.Logger.Debug().Sprintf("msg", "sendmetric len=%d", len(metrics)).Log()
+		ltsvlog.Logger.Debug().Fmt("msg", "sendmetric len=%d", len(metrics)).Log()
 		err := g.SendMetrics(metrics)
 		if err != nil {
 			g.Disconnect()
@@ -156,9 +149,7 @@ func readLog(sendMetrics chan []graphite.Metric) {
 	sum := make(map[time.Time]*sumData)
 	tail, err := gotail.Open(conf.LogFile, conf.PosFile)
 	if err != nil {
-		ltsvlog.Logger.Err(ltsvlog.WrapErr(err, func(err error) error {
-			return fmt.Errorf("%s logFile=%s posFile=%s err=%+v", "tail logfile faild", conf.LogFile, conf.PosFile, err)
-		}))
+		ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("%s logFile=%s posFile=%s err=%+v", "tail logfile faild", conf.LogFile, conf.PosFile, err)))
 		os.Exit(1)
 	}
 	tail.InitialReadPositionEnd = false
@@ -187,14 +178,14 @@ func readLog(sendMetrics chan []graphite.Metric) {
 				for ts := range sum {
 					if !ts.After(tl[0].Add(-conf.Report.Delay)) {
 						delete(sum, ts)
-						ltsvlog.Logger.Debug().Sprintf("msg", "delete metric time=%s", ts.String()).Log()
+						ltsvlog.Logger.Debug().Fmt("msg", "delete metric time=%s", ts.String()).Log()
 					}
 				}
 			}
 			var metrics []graphite.Metric
 			for ts, m := range sum {
 				if !now.Add(-conf.Report.Interval).Before(m.timestamp) {
-					ltsvlog.Logger.Debug().Sprintf("msg", "metric continue time=%s", m.timestamp.String()).Log()
+					ltsvlog.Logger.Debug().Fmt("msg", "metric continue time=%s", m.timestamp.String()).Log()
 					continue
 				}
 				for key, value := range m.Int {
@@ -318,9 +309,7 @@ func readLog(sendMetrics chan []graphite.Metric) {
 	}
 
 	if err = tail.Err(); err != nil {
-		ltsvlog.Logger.Err(ltsvlog.WrapErr(err, func(err error) error {
-			return fmt.Errorf("%s err=%+v", "tail log err", err)
-		}))
+		ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("%s err=%+v", "tail log err", err)))
 		os.Exit(1)
 	}
 }
