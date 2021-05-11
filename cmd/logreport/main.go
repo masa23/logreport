@@ -213,16 +213,21 @@ func readLog(sendMetrics chan []graphite.Metric) {
 
 	for tail.Scan() {
 		buf := tail.Bytes()
-		log := logreport.ParseLTSV(buf, conf.LogColumns)
-
-		if log[conf.TimeColumn] == nil {
+		log, err := logreport.ParseLog(buf, conf.LogColumns, conf.LogFormat)
+		if err != nil {
+			ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("%s err=%+v", "log parse error", err)))
 			continue
 		}
-		t, err := time.Parse(conf.TimeParse, string(log[conf.TimeColumn]))
+
+		if log.Bytes(conf.TimeColumn) == nil {
+			continue
+		}
+		t, err := time.Parse(conf.TimeParse, string(log.Bytes(conf.TimeColumn)))
 		t = t.Truncate(conf.Report.Interval)
 		if err != nil {
 			continue
 		}
+		t = t.Truncate(conf.Report.Interval)
 
 		lock.Lock()
 		if _, ok := sum[t]; !ok {
@@ -236,20 +241,20 @@ func readLog(sendMetrics chan []graphite.Metric) {
 		sum[t].timestamp = time.Now()
 	NEXT_METRIC:
 		for _, metric := range conf.Metrics {
-			if log[metric.LogColumn] == nil {
+			if !log.IsColumn(metric.LogColumn) {
 				continue
 			}
 			if metric.Filter != nil {
 				for _, filter := range metric.Filter {
-					if log[filter.LogColumn] == nil {
+					if !log.IsColumn(filter.LogColumn) {
 						continue NEXT_METRIC
 					}
 					if filter.Bool {
-						if string(log[filter.LogColumn]) != filter.Value {
+						if string(log.Bytes(filter.LogColumn)) != filter.Value {
 							continue NEXT_METRIC
 						}
 					} else {
-						if string(log[filter.LogColumn]) == filter.Value {
+						if string(log.Bytes(filter.LogColumn)) == filter.Value {
 							continue NEXT_METRIC
 						}
 					}
@@ -260,28 +265,28 @@ func readLog(sendMetrics chan []graphite.Metric) {
 			case logreport.MetricTypeCount:
 				sum[t].Int[metric.ItemName]++
 			case logreport.MetricTypeSum:
-				if metric.DataType == logreport.DataTypeInt || metric.DataType == "" {
-					num, _ := strconv.ParseInt(string(log[metric.LogColumn]), 10, 64)
-					sum[t].Int[metric.ItemName] += num
-				} else if metric.DataType == logreport.DataTypeFloat {
-					num, _ := strconv.ParseFloat(string(log[metric.LogColumn]), 64)
-					sum[t].Float[metric.ItemName] += num
+				switch metric.DataType {
+				case logreport.DataTypeFloat:
+					sum[t].Int[metric.ItemName] += log.Int(metric.LogColumn)
+				case logreport.DataTypeInt:
+					sum[t].Float[metric.ItemName] += log.Float(metric.LogColumn)
 				}
 			case logreport.MetricTypeMax:
-				if metric.DataType == logreport.DataTypeInt {
-					num, _ := strconv.ParseInt(string(log[metric.LogColumn]), 10, 64)
+				switch metric.DataType {
+				case logreport.DataTypeFloat:
+					num := log.Int(metric.LogColumn)
 					if sum[t].Int[metric.ItemName] < num {
 						sum[t].Int[metric.ItemName] = num
 					}
-				} else if metric.DataType == logreport.DataTypeFloat {
-					num, _ := strconv.ParseFloat(string(log[metric.LogColumn]), 64)
+				case logreport.DataTypeInt:
+					num := log.Float(metric.LogColumn)
 					if sum[t].Float[metric.ItemName] < num {
 						sum[t].Float[metric.ItemName] = num
 					}
 				}
 			case logreport.MetricTypeMin:
 				if metric.DataType == logreport.DataTypeInt {
-					num, _ := strconv.ParseInt(string(log[metric.LogColumn]), 10, 64)
+					num := log.Int(metric.LogColumn)
 					if sum[t].new {
 						sum[t].Int[metric.ItemName] = num
 					} else {
@@ -290,7 +295,7 @@ func readLog(sendMetrics chan []graphite.Metric) {
 						}
 					}
 				} else if metric.DataType == logreport.DataTypeFloat {
-					num, _ := strconv.ParseFloat(string(log[metric.LogColumn]), 64)
+					num := log.Float(metric.LogColumn)
 					if sum[t].new {
 						sum[t].Float[metric.ItemName] = num
 					} else {
@@ -300,7 +305,7 @@ func readLog(sendMetrics chan []graphite.Metric) {
 					}
 				}
 			case logreport.MetricTypeItemCount:
-				sum[t].Int[metric.ItemName+"."+string(log[metric.LogColumn])]++
+				sum[t].Int[metric.ItemName+"."+string(log.Bytes(metric.LogColumn))]++
 			}
 
 		}

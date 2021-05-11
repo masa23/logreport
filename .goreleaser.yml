@@ -1,0 +1,52 @@
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+builds:
+  - dir: cmd/logreport
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{ .CommitDate }} -X main.builtBy=.log
+archives:
+  - replacements:
+      linux: Linux
+      386: i386
+      amd64: x86_64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Tag }}"
+changelog:
+  skip: true
+nfpms:
+  - id: logreport
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}-1_{{ .Arch }}"
+    builds:
+      - logreport 
+    homepage: https://github.com/masa23/logreport
+    maintainer: Masafumi Yamamoto <masa23@gmail.com>
+    description: Summarize the log in LTSV format and input the result into graphite
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    epoch: 1
+    empty_folders:
+      - /var/run/logreport
+      - /etc/logreport
+    scripts:
+      preinstall: misc/scripts/before_install.sh
+      postinstall: misc/scripts/after_install.sh
+    contents:
+      - src: misc/files/logreport.service
+        dst: /lib/systemd/system/logreport.service
+        type: config
+      - src: cmd/logreport/config.sample.yaml
+        dst: /etc/logreport/logreport.yaml
+        type: config
