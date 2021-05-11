@@ -1,3 +1,3 @@
 # logreport
 
-LTSV形式のログを集計して集計結果をgraphiteに投入する
+LTSV形式、json形式（ネスト不可）のログを集計して集計結果をgraphiteに投入する
