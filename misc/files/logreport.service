@@ -1,0 +1,17 @@
+[Unit]
+Description=logreport
+Documentation=https://github.com/masa23/logreport
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=root
+Group=root
+Type=simple
+Restart=on-failure
+ExecStart=/usr/bin/logreport -config /etc/logreport/logreport.yaml
+PIDFile=/var/run/logreport/logreport.pid
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

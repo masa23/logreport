@@ -1,0 +1,14 @@
+github.com/hnakamur/errstack v0.2.0 h1:vB3zuGccLOV0e/eFM74mNU0/oOvo7XPohIuFsJKhS6g=
+github.com/hnakamur/errstack v0.2.0/go.mod h1:od3sg2FcV0HOZ1VGgL/cfn5yvj5hdHZsTF9KDvQQQpY=
+github.com/hnakamur/ltsvlog v2.0.4+incompatible h1:edFPELOLdpLAvVfMtjHfeSujkvE9CfnntA46GeADjY8=
+github.com/hnakamur/ltsvlog v2.0.4+incompatible/go.mod h1:VHkyEudSkq1ksDQ4SVHiJn2J3PixwozabREw1WkGmx4=
+github.com/marpaia/graphite-golang v0.0.0-20190519024811-caf161d2c2b1 h1:lODGHy+2Namopi4v7AeiqW106eo4QMXqj9aE8jVXcO4=
+github.com/marpaia/graphite-golang v0.0.0-20190519024811-caf161d2c2b1/go.mod h1:llZw8JbFm5CvdRrtgdjaQNlZR1bQhAWsBKtb0HTX+sw=
+github.com/masa23/gotail v0.2.2 h1:NDK+/FaaeNjGLS7jTWjLWzFRd0NyX/7ibfRJn6iycGo=
+github.com/masa23/gotail v0.2.2/go.mod h1:eOVoQnazHc3cB6t09myBh2Mpte0fu8gGDoA4bJfjO8k=
+github.com/valyala/fastjson v1.6.3 h1:tAKFnnwmeMGPbwJ7IwxcTPCNr3uIzoIj3/Fh90ra4xc=
+github.com/valyala/fastjson v1.6.3/go.mod h1:CLCAqky6SMuOcxStkYQvblddUtoRxhYMGLrsQns1aXY=
+gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
+gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+gopkg.in/yaml.v2 v2.4.0 h1:D8xgwECY7CYvx+Y2n4sBz93Jn9JRvxdiyyo8CTfuKaY=
+gopkg.in/yaml.v2 v2.4.0/go.mod h1:RDklbk79AGWmwhnvt/jBztapEOGDOx6ZbXqjP6csGnQ=

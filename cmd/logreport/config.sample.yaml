@@ -9,6 +9,8 @@ PosFile: "/var/log/nginx/access.log.pos"
 
 TimeColumn: "time_local"
 TimeParse: "02/Jan/2006:15:04:05 -0700"
+LogFormat: ltsv
+# LogFormat: json
 
 # metric send graphite
 Graphite:
@@ -69,6 +71,7 @@ Metrics:
   - Description: "bytes sent"
     ItemName: "bytes_sent"
     Type: "sum"
+    DataType: "int"
     LogColumn: "bytes_sent"
 
   - Description: "max upstream request time"

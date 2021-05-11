@@ -2,4 +2,10 @@ cmd/logreport/logreport
 cmd/logreport/config.yaml
 cmd/logreport/*.log
 cmd/logreport/*.pos
+vendor/
+build/
+*.rpm
+*.deb
 .vscode/
+dist/
+dist/
