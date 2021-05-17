@@ -213,16 +213,18 @@ func readLog(sendMetrics chan []graphite.Metric) {
 
 	for tail.Scan() {
 		buf := tail.Bytes()
+		ltsvlog.Logger.Debug().Fmt("readlog", "%s", string(buf)).Log()
 		log, err := logreport.ParseLog(buf, conf.LogColumns, conf.LogFormat)
 		if err != nil {
 			ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("%s err=%+v", "log parse error", err)))
 			continue
 		}
 
-		if log.Bytes(conf.TimeColumn) == nil {
+		if !log.IsColumn(conf.TimeColumn) {
 			continue
 		}
-		t, err := time.Parse(conf.TimeParse, string(log.Bytes(conf.TimeColumn)))
+
+		t, err := time.Parse(conf.TimeParse, log.String(conf.TimeColumn))
 		t = t.Truncate(conf.Report.Interval)
 		if err != nil {
 			continue
@@ -250,11 +252,11 @@ func readLog(sendMetrics chan []graphite.Metric) {
 						continue NEXT_METRIC
 					}
 					if filter.Bool {
-						if string(log.Bytes(filter.LogColumn)) != filter.Value {
+						if string(log.String(filter.LogColumn)) != string(filter.Value) {
 							continue NEXT_METRIC
 						}
 					} else {
-						if string(log.Bytes(filter.LogColumn)) == filter.Value {
+						if string(log.String(filter.LogColumn)) == string(filter.Value) {
 							continue NEXT_METRIC
 						}
 					}
@@ -305,7 +307,7 @@ func readLog(sendMetrics chan []graphite.Metric) {
 					}
 				}
 			case logreport.MetricTypeItemCount:
-				sum[t].Int[metric.ItemName+"."+string(log.Bytes(metric.LogColumn))]++
+				sum[t].Int[metric.ItemName+"."+log.String(metric.LogColumn)]++
 			}
 
 		}
