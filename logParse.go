@@ -7,28 +7,13 @@ import (
 	"github.com/valyala/fastjson"
 )
 
-type parsedLog struct {
-	t string
-	f float64
-	i int64
-	b []byte
-}
-
 type parsedLogs struct {
-	list map[string]parsedLog
+	list map[string]string
 }
 
-// Bytes
-func (p *parsedLogs) Bytes(name string) []byte {
-	return p.list[name].b
-}
-
-func (p *parsedLogs) Int(name string) int64 {
-	return p.list[name].i
-}
-
-func (p *parsedLogs) Float(name string) float64 {
-	return p.list[name].f
+// String
+func (p *parsedLogs) String(name string) string {
+	return p.list[name]
 }
 
 func (p *parsedLogs) IsColumn(name string) bool {
@@ -36,12 +21,22 @@ func (p *parsedLogs) IsColumn(name string) bool {
 	return ok
 }
 
+func (p *parsedLogs) Int(name string) int64 {
+	i, _ := strconv.ParseInt(p.list[name], 10, 64)
+	return i
+}
+
+func (p *parsedLogs) Float(name string) float64 {
+	f, _ := strconv.ParseFloat(p.list[name], 64)
+	return f
+}
+
 // ParseLog
 // format json, ltsv
 func ParseLog(buf []byte, columns []logColumn, format string) (parsedLogs, error) {
 	var err error
 	var parsed parsedLogs
-	parsed.list = make(map[string]parsedLog)
+	parsed.list = make(map[string]string)
 	if format == "json" {
 		var p fastjson.Parser
 
@@ -49,28 +44,9 @@ func ParseLog(buf []byte, columns []logColumn, format string) (parsedLogs, error
 		if err != nil {
 			return parsed, err
 		}
-
 		for _, column := range columns {
-			switch column.DataType {
-			case DataTypeString:
-				b := v.GetStringBytes(column.Name)
-				parsed.list[column.Name] = parsedLog{
-					t: column.DataType,
-					b: b,
-				}
-			case DataTypeInt:
-				i := v.GetInt64(column.Name)
-				parsed.list[column.Name] = parsedLog{
-					t: column.DataType,
-					i: i,
-				}
-			case DataTypeFloat:
-				f := v.GetFloat64(column.Name)
-				parsed.list[column.Name] = parsedLog{
-					t: column.DataType,
-					f: f,
-				}
-			}
+			s := string(v.GetStringBytes(column.Name))
+			parsed.list[column.Name] = s
 		}
 	} else if format == "ltsv" {
 		list := bytes.Split(buf, []byte("\t"))
@@ -81,28 +57,7 @@ func ParseLog(buf []byte, columns []logColumn, format string) (parsedLogs, error
 					continue
 				}
 				if bytes.Equal(s[0], []byte(column.Name)) {
-					switch column.DataType {
-					case DataTypeString:
-						parsed.list[column.Name] = parsedLog{
-							t: column.DataType,
-							b: s[1],
-						}
-					case DataTypeInt:
-						var i int64
-						i, err = strconv.ParseInt(string(s[1]), 10, 64)
-						parsed.list[column.Name] = parsedLog{
-							t: column.DataType,
-							i: i,
-						}
-					case DataTypeFloat:
-						var f float64
-						f, err = strconv.ParseFloat(string(s[1]), 64)
-						parsed.list[column.Name] = parsedLog{
-							t: column.DataType,
-							f: f,
-						}
-					}
-					break
+					parsed.list[column.Name] = string(s[1])
 				}
 			}
 		}
