@@ -13,10 +13,7 @@ builds:
     ldflags:
       - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{ .CommitDate }} -X main.builtBy=.log
 archives:
-  - replacements:
-      linux: Linux
-      386: i386
-      amd64: x86_64
+  - id: logreport
 checksum:
   name_template: 'checksums.txt'
 snapshot:
@@ -37,9 +34,6 @@ nfpms:
       - rpm
     bindir: /usr/bin
     epoch: 1
-    empty_folders:
-      - /var/run/logreport
-      - /etc/logreport
     scripts:
       preinstall: misc/scripts/before_install.sh
       postinstall: misc/scripts/after_install.sh
@@ -50,3 +44,11 @@ nfpms:
       - src: cmd/logreport/config.sample.yaml
         dst: /etc/logreport/logreport.yaml
         type: config
+      - dst: /var/run/logreport
+        type: dir
+        file_info:
+          mode: 0700
+      - dst: /etc/logreport
+        type: dir
+        file_info:
+          mode: 0700
