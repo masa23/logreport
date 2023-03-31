@@ -146,6 +146,7 @@ func sendGraphite(sendMetrics chan []graphite.Metric, g *graphite.Graphite) {
 
 func readLog(sendMetrics chan []graphite.Metric) {
 	ltsvlog.Logger.Debug().String("msg", "start readLog go routine").Log()
+	gotail.DefaultBufSize = conf.LogBufferSize
 	sum := make(map[time.Time]*sumData)
 	tail, err := gotail.Open(conf.LogFile, conf.PosFile)
 	if err != nil {
