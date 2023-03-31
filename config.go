@@ -23,18 +23,19 @@ const (
 
 // Config is confiure struct
 type Config struct {
-	Debug        bool            `yaml:"Debug"`
-	PidFile      string          `yaml:"PidFile"`
-	ErrorLogFile string          `yaml:"ErrorLogFile"`
-	LogFile      string          `yaml:"LogFile"`
-	PosFile      string          `yaml:"PosFile"`
-	LogFormat    string          `yaml:"LogFormat"`
-	Graphite     configGraphite  `yaml:"Graphite"`
-	Report       configReport    `yaml:"Report"`
-	Metrics      []configMetrics `yaml:"Metrics"`
-	TimeColumn   string          `yaml:"TimeColumn"`
-	TimeParse    string          `yaml:"TimeParse"`
-	LogColumns   []logColumn
+	Debug         bool            `yaml:"Debug"`
+	PidFile       string          `yaml:"PidFile"`
+	ErrorLogFile  string          `yaml:"ErrorLogFile"`
+	LogFile       string          `yaml:"LogFile"`
+	PosFile       string          `yaml:"PosFile"`
+	LogBufferSize int             `yaml:"LogBufferSize"`
+	LogFormat     string          `yaml:"LogFormat"`
+	Graphite      configGraphite  `yaml:"Graphite"`
+	Report        configReport    `yaml:"Report"`
+	Metrics       []configMetrics `yaml:"Metrics"`
+	TimeColumn    string          `yaml:"TimeColumn"`
+	TimeParse     string          `yaml:"TimeParse"`
+	LogColumns    []logColumn
 }
 
 // logColumn
@@ -93,6 +94,9 @@ func ConfigLoad(file string) (*Config, error) {
 	}
 	if !isValidLogFormat(conf.LogFormat) {
 		return conf, fmt.Errorf("LogFormat type %s is unsupported", conf.LogFormat)
+	}
+	if conf.LogBufferSize == 0 {
+		conf.LogBufferSize = 4096
 	}
 	for i, metric := range conf.Metrics {
 		if !isValidMetricType(metric.Type) {

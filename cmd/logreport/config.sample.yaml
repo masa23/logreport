@@ -2,6 +2,7 @@
 Debug: false
 PidFile: "/var/run/logreport.pid"
 ErrorLogFile: "/var/log/logreport.log"
+LogBufferSize: 4096
 
 # Read log file path. Posisiton file path.
 LogFile: "/var/log/nginx/access.log"
