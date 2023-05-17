@@ -24,6 +24,7 @@ import (
 var (
 	conf     *logreport.Config
 	confLock = new(sync.Mutex)
+	g        *graphite.Graphite
 )
 
 type sumData struct {
@@ -73,7 +74,7 @@ func main() {
 
 	sendMetrics := make(chan []graphite.Metric, conf.Graphite.SendBuffer)
 
-	g, err := graphite.NewGraphite(conf.Graphite.Host, conf.Graphite.Port)
+	g, err = graphite.NewGraphite(conf.Graphite.Host, conf.Graphite.Port)
 	if err != nil {
 		ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("%s err=%+v", "graphite connection error", err)))
 		os.Exit(1)
@@ -103,7 +104,7 @@ func main() {
 					ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("%s err=%+v", "log file reopen faild", err)))
 					continue
 				}
-				defer newLogFile.Close()
+				//defer newLogFile.Close()
 				newLogger = ltsvlog.NewLTSVLogger(newLogFile, newConf.Debug)
 			} else {
 				newLogger = ltsvlog.NewLTSVLogger(os.Stdout, newConf.Debug)
@@ -125,21 +126,30 @@ func main() {
 	}
 }
 
-func sendGraphite(sendMetrics chan []graphite.Metric, g *graphite.Graphite) {
-	ltsvlog.Logger.Debug().String("msg", "start sendGraphite go routine").Log()
+func sendMetrics(g *graphite.Graphite, metrics []graphite.Metric) error {
+	ltsvlog.Logger.Debug().Fmt("msg", "Sending %d metrics to Graphite", len(metrics)).Log()
+	return g.SendMetrics(metrics)
+}
+
+func reconnectGraphite(g *graphite.Graphite) *graphite.Graphite {
 	for {
-		metrics := <-sendMetrics
-		ltsvlog.Logger.Debug().Fmt("msg", "sendmetric len=%d", len(metrics)).Log()
-		err := g.SendMetrics(metrics)
-		if err != nil {
+		time.Sleep(time.Second)
+		newGraphite, err := graphite.NewGraphite(conf.Graphite.Host, conf.Graphite.Port)
+		if err == nil {
+			return newGraphite
+		}
+		ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("Failed to reconnect to Graphite: %+v", err)))
+	}
+}
+
+func sendGraphite(sendMetricsChan chan []graphite.Metric, g *graphite.Graphite) {
+	ltsvlog.Logger.Debug().String("msg", "Starting sendGraphite goroutine").Log()
+	for {
+		metrics := <-sendMetricsChan
+		if err := sendMetrics(g, metrics); err != nil {
+			ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("Failed to send metrics: %+v", err)))
 			g.Disconnect()
-			for {
-				time.Sleep(time.Second)
-				g, err = graphite.NewGraphite(conf.Graphite.Host, conf.Graphite.Port)
-				if err == nil {
-					break
-				}
-			}
+			g = reconnectGraphite(g)
 		}
 	}
 }
@@ -174,7 +184,7 @@ func readLog(sendMetrics chan []graphite.Metric) {
 			target := now.Truncate(conf.Report.Interval)
 			d := target.Add(conf.Report.Interval).Sub(now)
 			timer.Reset(d)
-			t := <-timer.C
+			<-timer.C
 
 			lock.Lock()
 
@@ -216,7 +226,6 @@ func readLog(sendMetrics chan []graphite.Metric) {
 			if len(metrics) > 0 {
 				sendMetrics <- metrics
 			}
-			t = t.Truncate(conf.Report.Interval).Add(-conf.Report.Interval)
 			lock.Unlock()
 		}
 	}()

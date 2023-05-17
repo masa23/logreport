@@ -2,7 +2,6 @@ package logreport
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -76,13 +75,7 @@ type configMetricsFilter struct {
 // ConfigLoad is loading yaml config
 func ConfigLoad(file string) (*Config, error) {
 	conf := new(Config)
-	fd, err := os.Open(file)
-	if err != nil {
-		return conf, err
-	}
-	defer fd.Close()
-
-	buf, err := ioutil.ReadAll(fd)
+	buf, err := os.ReadFile(file)
 	if err != nil {
 		return conf, err
 	}
@@ -90,44 +83,27 @@ func ConfigLoad(file string) (*Config, error) {
 	if err != nil {
 		return conf, err
 	}
-	if conf.LogFormat == "" {
-		conf.LogFormat = "ltsv"
-	}
+
+	defaultConfig(conf)
+
 	if !isValidLogFormat(conf.LogFormat) {
 		return conf, fmt.Errorf("LogFormat type %s is unsupported", conf.LogFormat)
 	}
-	if conf.LogBufferSize == 0 {
-		conf.LogBufferSize = 4096
-	}
+
 	for i, metric := range conf.Metrics {
-		if !isValidMetricType(metric.Type) {
-			return conf, fmt.Errorf("metric type %s is unsupported", metric.Type)
-		}
-		if metric.DataType == "" {
-			conf.Metrics[i].DataType = DataTypeString
-			metric.DataType = DataTypeString
-		}
-		if !isValidDataType(metric.DataType) {
-			return conf, fmt.Errorf("data type %s is unsupported", metric.DataType)
+		if err := validateMetricAndSetDefault(&conf.Metrics[i]); err != nil {
+			return conf, err
 		}
 		if metric.Filter == nil {
 			continue
 		}
-		for j, filter := range metric.Filter {
-			if filter.Value != "" && filter.Values != nil {
-				return conf, fmt.Errorf("filter value and values are both set")
-			} else if filter.Value != "" {
-				conf.Metrics[i].Filter[j].Values = []string{filter.Value}
-			}
-			if filter.DataType == "" {
-				conf.Metrics[i].Filter[j].DataType = DataTypeString
-				filter.DataType = DataTypeString
-			}
-			if !isValidDataType(filter.DataType) {
-				return conf, fmt.Errorf("data type %s is unsupported", filter.DataType)
+		for j := range metric.Filter {
+			if err := validateFilterAndSetDefault(&conf.Metrics[i].Filter[j]); err != nil {
+				return conf, err
 			}
 		}
 	}
+
 	confLogColumns(conf)
 	return conf, nil
 }
@@ -157,6 +133,43 @@ func confLogColumns(conf *Config) {
 			}
 		}
 	}
+}
+
+func defaultConfig(conf *Config) {
+	if conf.LogFormat == "" {
+		conf.LogFormat = "ltsv"
+	}
+	if conf.LogBufferSize == 0 {
+		conf.LogBufferSize = 4096
+	}
+}
+
+func validateMetricAndSetDefault(metric *configMetrics) error {
+	if !isValidMetricType(metric.Type) {
+		return fmt.Errorf("metric type %s is unsupported", metric.Type)
+	}
+	if metric.DataType == "" {
+		metric.DataType = DataTypeString
+	}
+	if !isValidDataType(metric.DataType) {
+		return fmt.Errorf("data type %s is unsupported", metric.DataType)
+	}
+	return nil
+}
+
+func validateFilterAndSetDefault(filter *configMetricsFilter) error {
+	if filter.Value != "" && filter.Values != nil {
+		return fmt.Errorf("filter value and values are both set")
+	} else if filter.Value != "" {
+		filter.Values = []string{filter.Value}
+	}
+	if filter.DataType == "" {
+		filter.DataType = DataTypeString
+	}
+	if !isValidDataType(filter.DataType) {
+		return fmt.Errorf("data type %s is unsupported", filter.DataType)
+	}
+	return nil
 }
 
 func isValidMetricType(str string) bool {
