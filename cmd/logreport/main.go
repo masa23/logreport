@@ -144,6 +144,15 @@ func sendGraphite(sendMetrics chan []graphite.Metric, g *graphite.Graphite) {
 	}
 }
 
+func containsString(arr []string, str string) bool {
+	for _, s := range arr {
+		if s == str {
+			return true
+		}
+	}
+	return false
+}
+
 func readLog(sendMetrics chan []graphite.Metric) {
 	ltsvlog.Logger.Debug().String("msg", "start readLog go routine").Log()
 	gotail.DefaultBufSize = conf.LogBufferSize
@@ -253,11 +262,11 @@ func readLog(sendMetrics chan []graphite.Metric) {
 						continue NEXT_METRIC
 					}
 					if filter.Bool {
-						if string(log.String(filter.LogColumn)) != string(filter.Value) {
+						if !containsString(filter.Values, string(log.String(filter.LogColumn))) {
 							continue NEXT_METRIC
 						}
 					} else {
-						if string(log.String(filter.LogColumn)) == string(filter.Value) {
+						if containsString(filter.Values, string(log.String(filter.LogColumn))) {
 							continue NEXT_METRIC
 						}
 					}
