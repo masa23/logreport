@@ -34,7 +34,8 @@ Metrics:
     LogColumn: "status"
     Filter:
       - LogColumn: "scheme"
-        Value: "http"
+        Values:
+          - "http"
         Bool: true
 
   - Description: "status count"
@@ -43,7 +44,8 @@ Metrics:
     LogColumn: "status"
     Filter:
       - LogColumn: "scheme"
-        Value: "https"
+        Values:
+          - "https"
         Bool: true
 
   - Discription: "http request count"
@@ -52,7 +54,8 @@ Metrics:
     LogColumn: "scheme"
     Filter:
       - LogColumn: "scheme"
-        Value: "http"
+        Values:
+          - "http"
         Bool: true
 
   - Discription: "https request count"
@@ -61,7 +64,8 @@ Metrics:
     LogColumn: "scheme"
     Filter:
       - LogColumn: "scheme"
-        Value: "https"
+        Values:
+          - "https"
         Bool: true
 
   - Description: "hit counter"

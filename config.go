@@ -66,10 +66,11 @@ type configMetrics struct {
 }
 
 type configMetricsFilter struct {
-	LogColumn string `yaml:"LogColumn"`
-	Value     string `yaml:"Value"`
-	DataType  string `yaml:"DataType"`
-	Bool      bool   `yaml:"Bool"`
+	LogColumn string   `yaml:"LogColumn"`
+	Value     string   `yaml:"Value"`
+	Values    []string `yaml:"Values"`
+	DataType  string   `yaml:"DataType"`
+	Bool      bool     `yaml:"Bool"`
 }
 
 // ConfigLoad is loading yaml config
@@ -113,6 +114,11 @@ func ConfigLoad(file string) (*Config, error) {
 			continue
 		}
 		for j, filter := range metric.Filter {
+			if filter.Value != "" && filter.Values != nil {
+				return conf, fmt.Errorf("filter value and values are both set")
+			} else if filter.Value != "" {
+				conf.Metrics[i].Filter[j].Values = []string{filter.Value}
+			}
 			if filter.DataType == "" {
 				conf.Metrics[i].Filter[j].DataType = DataTypeString
 				filter.DataType = DataTypeString
