@@ -287,9 +287,9 @@ func readLog(sendMetrics chan []graphite.Metric) {
 				sum[t].Int[metric.ItemName]++
 			case logreport.MetricTypeSum:
 				switch metric.DataType {
-				case logreport.DataTypeFloat:
-					sum[t].Int[metric.ItemName] += log.Int(metric.LogColumn)
 				case logreport.DataTypeInt:
+					sum[t].Int[metric.ItemName] += log.Int(metric.LogColumn)
+				case logreport.DataTypeFloat:
 					sum[t].Float[metric.ItemName] += log.Float(metric.LogColumn)
 				}
 			case logreport.MetricTypeMax:
