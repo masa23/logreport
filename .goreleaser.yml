@@ -1,7 +1,8 @@
+version: 2
 before:
   hooks:
     - go mod tidy
-    - go mod download
+
 builds:
   - dir: cmd/logreport
     env:
@@ -11,15 +12,30 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{ .CommitDate }} -X main.builtBy=.log
-archives:
-  - id: logreport
-checksum:
-  name_template: 'checksums.txt'
-snapshot:
-  name_template: "{{ .Tag }}"
+      - -s -w -X main.version={{.Version}}
+
 changelog:
-  skip: true
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+archives:
+  - name_template: >-
+      {{- .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end -}}
+    files:
+      - CREDITS
+      - LICENSE
+      - README.md
+      - src: cmd/logreport/config.sample.yaml
+        dst: logreport.yaml
+
 nfpms:
   - id: logreport
     file_name_template: "{{ .ProjectName }}_{{ .Version }}-1_{{ .Arch }}"
@@ -33,21 +49,27 @@ nfpms:
       - deb
       - rpm
     bindir: /usr/bin
-    epoch: 1
+    section: admin
     scripts:
-      preinstall: misc/scripts/before_install.sh
-      postinstall: misc/scripts/after_install.sh
+      preinstall: misc/scripts/preinstall.sh
+      postinstall: misc/scripts/postinstall.sh
     contents:
-      - src: misc/files/logreport.service
-        dst: /lib/systemd/system/logreport.service
+      - dst: /lib/systemd/system/logreport.service
+        src: misc/files/logreport.service
         type: config
-      - src: cmd/logreport/config.sample.yaml
-        dst: /etc/logreport/logreport.yaml
+      - dst: /etc/logreport/logreport.yaml
+        src: cmd/logreport/config.sample.yaml
         type: config
+      - dst: /usr/share/doc/logreport/CREDITS
+        src: CREDITS
       - dst: /var/run/logreport
         type: dir
         file_info:
-          mode: 0700
+          mode: 0755
+      - dst: /usr/share/doc/logreport
+        type: dir
+        file_info:
+          mode: 0755
       - dst: /etc/logreport
         type: dir
         file_info:
