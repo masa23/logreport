@@ -80,7 +80,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	go sendGraphite(sendMetrics, g)
+	go sendGraphite(sendMetrics)
 	go readLog(sendMetrics)
 
 	for {
@@ -118,9 +118,13 @@ func main() {
 
 			confLock.Lock()
 			ltsvlog.Logger = newLogger
+			oldGraphite := g
 			g = newGraphite
 			conf = newConf
 			confLock.Unlock()
+			if err := oldGraphite.Disconnect(); err != nil {
+				ltsvlog.Logger.Err(err)
+			}
 			ltsvlog.Logger.Info().String("msg", "reload logreport").Log()
 		}
 	}
@@ -142,7 +146,7 @@ func reconnectGraphite(g *graphite.Graphite) *graphite.Graphite {
 	}
 }
 
-func sendGraphite(sendMetricsChan chan []graphite.Metric, g *graphite.Graphite) {
+func sendGraphite(sendMetricsChan chan []graphite.Metric) {
 	ltsvlog.Logger.Debug().String("msg", "Starting sendGraphite goroutine").Log()
 	for {
 		metrics := <-sendMetricsChan
