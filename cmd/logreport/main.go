@@ -1,12 +1,11 @@
 package main
 
 import (
+	"context"
 	"flag"
-	"fmt"
 	"os"
 	"os/signal"
 	"sort"
-	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -14,17 +13,17 @@ import (
 	"github.com/hnakamur/errstack"
 	"github.com/hnakamur/ltsvlog"
 
-	"github.com/marpaia/graphite-golang"
-
 	"github.com/masa23/gotail"
 
 	"github.com/masa23/logreport"
+	"github.com/masa23/logreport/internal/exporter"
+	"github.com/masa23/logreport/internal/exporter/graphite"
 )
 
 var (
-	conf     *logreport.Config
-	confLock = new(sync.Mutex)
-	g        *graphite.Graphite
+	conf             *logreport.Config
+	confLock         = new(sync.Mutex)
+	graphiteExporter *graphite.GraphiteExporter
 )
 
 type sumData struct {
@@ -72,16 +71,21 @@ func main() {
 	pid := os.Getpid()
 	ltsvlog.Logger.Info().Fmt("msg", "start logreport pid=%d", pid).Log()
 
-	sendMetrics := make(chan []graphite.Metric, conf.Graphite.SendBuffer)
-
-	g, err = graphite.NewGraphite(conf.Graphite.Host, conf.Graphite.Port)
+	graphiteExporter, err = graphite.NewGraphiteExporter(&graphite.GraphiteExporterConfig{
+		Host:          conf.Graphite.Host,
+		Port:          conf.Graphite.Port,
+		Prefix:        conf.Graphite.Prefix,
+		SendBuffer:    conf.Graphite.SendBuffer,
+		MaxRetryCount: 5,
+		RetryWait:     time.Second,
+	})
 	if err != nil {
 		ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("%s err=%+v", "graphite connection error", err)))
 		os.Exit(1)
 	}
 
-	go sendGraphite(sendMetrics)
-	go readLog(sendMetrics)
+	go graphiteExporter.Start(context.TODO())
+	go readLog()
 
 	for {
 		signalChan := make(chan os.Signal, 1)
@@ -110,7 +114,14 @@ func main() {
 				newLogger = ltsvlog.NewLTSVLogger(os.Stdout, newConf.Debug)
 			}
 			// graphiteのリオープン
-			newGraphite, err := graphite.NewGraphite(conf.Graphite.Host, conf.Graphite.Port)
+			newGraphite, err := graphite.NewGraphiteExporter(&graphite.GraphiteExporterConfig{
+				Host:          conf.Graphite.Host,
+				Port:          conf.Graphite.Port,
+				Prefix:        conf.Graphite.Prefix,
+				SendBuffer:    conf.Graphite.SendBuffer,
+				MaxRetryCount: 5,
+				RetryWait:     time.Second,
+			})
 			if err != nil {
 				ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("%s err=%+v", "graphite connection error", err)))
 				continue
@@ -118,42 +129,14 @@ func main() {
 
 			confLock.Lock()
 			ltsvlog.Logger = newLogger
-			oldGraphite := g
-			g = newGraphite
+			oldGraphite := graphiteExporter
+			graphiteExporter = newGraphite
 			conf = newConf
 			confLock.Unlock()
-			if err := oldGraphite.Disconnect(); err != nil {
+			if err := oldGraphite.Stop(context.TODO()); err != nil {
 				ltsvlog.Logger.Err(err)
 			}
 			ltsvlog.Logger.Info().String("msg", "reload logreport").Log()
-		}
-	}
-}
-
-func sendMetrics(g *graphite.Graphite, metrics []graphite.Metric) error {
-	ltsvlog.Logger.Debug().Fmt("msg", "Sending %d metrics to Graphite", len(metrics)).Log()
-	return g.SendMetrics(metrics)
-}
-
-func reconnectGraphite(g *graphite.Graphite) *graphite.Graphite {
-	for {
-		time.Sleep(time.Second)
-		newGraphite, err := graphite.NewGraphite(conf.Graphite.Host, conf.Graphite.Port)
-		if err == nil {
-			return newGraphite
-		}
-		ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("Failed to reconnect to Graphite: %+v", err)))
-	}
-}
-
-func sendGraphite(sendMetricsChan chan []graphite.Metric) {
-	ltsvlog.Logger.Debug().String("msg", "Starting sendGraphite goroutine").Log()
-	for {
-		metrics := <-sendMetricsChan
-		if err := sendMetrics(g, metrics); err != nil {
-			ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("Failed to send metrics: %+v", err)))
-			g.Disconnect()
-			g = reconnectGraphite(g)
 		}
 	}
 }
@@ -167,7 +150,7 @@ func containsString(arr []string, str string) bool {
 	return false
 }
 
-func readLog(sendMetrics chan []graphite.Metric) {
+func readLog() {
 	ltsvlog.Logger.Debug().String("msg", "start readLog go routine").Log()
 	gotail.DefaultBufSize = conf.LogBufferSize
 	sum := make(map[time.Time]*sumData)
@@ -206,29 +189,32 @@ func readLog(sendMetrics chan []graphite.Metric) {
 					}
 				}
 			}
-			var metrics []graphite.Metric
+			var metrics []*exporter.Metric
 			for ts, m := range sum {
 				if !now.Add(-conf.Report.Interval).Before(m.timestamp) {
 					ltsvlog.Logger.Debug().Fmt("msg", "metric continue time=%s", m.timestamp.String()).Log()
 					continue
 				}
 				for key, value := range m.Int {
-					metrics = append(metrics, graphite.Metric{
-						Name:      fmt.Sprintf("%s.%s", conf.Graphite.Prefix, key),
-						Value:     strconv.FormatInt(value, 10),
-						Timestamp: ts.Unix(),
+					metrics = append(metrics, &exporter.Metric{
+						Key:       key,
+						Value:     value,
+						Timestamp: ts,
 					})
 				}
 				for key, value := range m.Float {
-					metrics = append(metrics, graphite.Metric{
-						Name:      fmt.Sprintf("%s.%s", conf.Graphite.Prefix, key),
-						Value:     strconv.FormatFloat(value, 'f', 3, 64),
-						Timestamp: ts.Unix(),
+					metrics = append(metrics, &exporter.Metric{
+						Key:       key,
+						Value:     value,
+						Timestamp: ts,
 					})
 				}
 			}
 			if len(metrics) > 0 {
-				sendMetrics <- metrics
+				if err := graphiteExporter.Export(context.TODO(), metrics); err != nil {
+					// graphiteExporter.Exportの実装上エラーは戻らない
+					panic("unreachable code reached")
+				}
 			}
 			lock.Unlock()
 		}
