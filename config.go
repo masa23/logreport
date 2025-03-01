@@ -29,7 +29,7 @@ type Config struct {
 	PosFile       string          `yaml:"PosFile"`
 	LogBufferSize int             `yaml:"LogBufferSize"`
 	LogFormat     string          `yaml:"LogFormat"`
-	Graphite      configGraphite  `yaml:"Graphite"`
+	Graphite      *configGraphite `yaml:"Graphite"`
 	Report        configReport    `yaml:"Report"`
 	Metrics       []configMetrics `yaml:"Metrics"`
 	TimeColumn    string          `yaml:"TimeColumn"`

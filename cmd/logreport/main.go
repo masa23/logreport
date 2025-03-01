@@ -76,15 +76,33 @@ func main() {
 	pid := os.Getpid()
 	ltsvlog.Logger.Info().Fmt("msg", "start logreport pid=%d", pid).Log()
 
-	if conf.Exporters.Graphite != nil {
-		graphiteExporter, err = graphite.NewGraphiteExporter(&graphite.GraphiteExporterConfig{
-			Host:          conf.Exporters.Graphite.Host,
-			Port:          conf.Exporters.Graphite.Port,
-			Prefix:        conf.Exporters.Graphite.Prefix,
-			SendBuffer:    conf.Exporters.Graphite.SendBuffer,
-			MaxRetryCount: 5,
-			RetryWait:     time.Second,
-		})
+	if conf.Exporters.Graphite != nil || conf.Graphite != nil {
+		var exporterConfig *graphite.GraphiteExporterConfig
+		if conf.Exporters.Graphite != nil {
+			exporterConfig = &graphite.GraphiteExporterConfig{
+				Host:          conf.Exporters.Graphite.Host,
+				Port:          conf.Exporters.Graphite.Port,
+				Prefix:        conf.Exporters.Graphite.Prefix,
+				SendBuffer:    conf.Exporters.Graphite.SendBuffer,
+				MaxRetryCount: 5,
+				RetryWait:     time.Second,
+			}
+		}
+
+		// 互換性を維持するため`Exporters.Graphite`が設定されていない場合は、古いフィールドの設定値を利用します。
+		if conf.Exporters.Graphite == nil {
+			ltsvlog.Logger.Info().String("msg", "Warning: the config field `Graphite` is deprecated. Please use `Exporters.Graphite` instead").Log()
+			exporterConfig = &graphite.GraphiteExporterConfig{
+				Host:          conf.Graphite.Host,
+				Port:          conf.Graphite.Port,
+				Prefix:        conf.Graphite.Prefix,
+				SendBuffer:    conf.Graphite.SendBuffer,
+				MaxRetryCount: 5,
+				RetryWait:     time.Second,
+			}
+		}
+
+		graphiteExporter, err = graphite.NewGraphiteExporter(exporterConfig)
 		if err != nil {
 			ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("%s err=%+v", "graphite connection error", err)))
 			os.Exit(1)
