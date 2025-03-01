@@ -35,6 +35,27 @@ type Config struct {
 	TimeColumn    string          `yaml:"TimeColumn"`
 	TimeParse     string          `yaml:"TimeParse"`
 	LogColumns    []logColumn
+	Exporters     configExporters `yaml:"Exporters"`
+}
+
+type configExporters struct {
+	Graphite *configGraphite `yaml:"Graphite"`
+	OtlpGrpc *configOtlpGrpc `yaml:"OtlpGrpc"`
+}
+
+type configOtlpGrpcTLS struct {
+	Insecure             bool   `yaml:"Insecure"`
+	CACertificate        string `yaml:"CACertificate"`
+	ClientCertificate    string `yaml:"ClientCertificate"`
+	ClientCertificateKey string `yaml:"ClientCertificateKey"`
+}
+
+type configOtlpGrpc struct {
+	URL           string             `yaml:"URL"`
+	TLS           *configOtlpGrpcTLS `yaml:"TLS"`
+	SendBuffer    int                `yaml:"SendBuffer"`
+	MaxRetryCount int                `yaml:"MaxRetryCount"`
+	RetryWait     time.Duration      `yaml:"RetryWait"`
 }
 
 // logColumn
