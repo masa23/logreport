@@ -1,0 +1,24 @@
+services:
+  graphite:
+    image: graphiteapp/graphite-statsd
+    ports:
+      - 127.0.0.1:3001:80
+      - 127.0.0.1:2003:2003
+    volumes:
+      - ./misc/files/storage-schemas.conf:/opt/graphite/conf/storage-schemas.conf
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.11.1.2557
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  otelcol:
+    image: otel/opentelemetry-collector-contrib:0.116.1
+    command: ["--config=/etc/otelcol.yaml"]
+    volumes:
+    - ./misc/files/otelcol.yaml:/etc/otelcol.yaml
+    restart: always
+    ports:
+    - 127.0.0.1:4317:4317
