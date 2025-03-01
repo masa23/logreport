@@ -12,17 +12,8 @@ extensions:
   health_check:
 
 exporters:
-  clickhouse:
-    endpoint: tcp://clickhouse:9000?dial_timeout=10s&compress=lz4&async_insert=1
-    ttl: 72h
-    create_schema: true
-    timeout: 5s
-    database: default
-    retry_on_failure:
-      enabled: true
-      initial_interval: 5s
-      max_interval: 30s
-      max_elapsed_time: 300s
+  prometheusremotewrite:
+    endpoint: http://prometheus:9090/api/v1/write
   debug:
 
 service:
@@ -31,4 +22,4 @@ service:
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [clickhouse, debug]
+      exporters: [prometheusremotewrite, debug]
