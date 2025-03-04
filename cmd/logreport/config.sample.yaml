@@ -33,6 +33,10 @@ Exporters:
   #  SendBuffer: 1000
   #  MaxRetryCount: 10
   #  RetryWait: 1s
+  #  ResourceAttributes:
+  #    service.name: example-service
+  #    server.address: localhost
+  #    key: example
 
 # Report
 Report:

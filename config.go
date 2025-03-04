@@ -51,11 +51,12 @@ type configOtlpGrpcTLS struct {
 }
 
 type configOtlpGrpc struct {
-	URL           string             `yaml:"URL"`
-	TLS           *configOtlpGrpcTLS `yaml:"TLS"`
-	SendBuffer    int                `yaml:"SendBuffer"`
-	MaxRetryCount int                `yaml:"MaxRetryCount"`
-	RetryWait     time.Duration      `yaml:"RetryWait"`
+	URL                string             `yaml:"URL"`
+	TLS                *configOtlpGrpcTLS `yaml:"TLS"`
+	SendBuffer         int                `yaml:"SendBuffer"`
+	MaxRetryCount      int                `yaml:"MaxRetryCount"`
+	RetryWait          time.Duration      `yaml:"RetryWait"`
+	ResourceAttributes map[string]string  `yaml:"ResourceAttributes"`
 }
 
 // logColumn

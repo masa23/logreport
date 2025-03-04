@@ -131,9 +131,10 @@ func main() {
 				Insecure:   conf.Exporters.OtlpGrpc.TLS.Insecure,
 				CACertPool: caCertPool,
 			},
-			SendBuffer:    conf.Exporters.OtlpGrpc.SendBuffer,
-			MaxRetryCount: conf.Exporters.OtlpGrpc.MaxRetryCount,
-			RetryWait:     conf.Exporters.OtlpGrpc.RetryWait,
+			SendBuffer:         conf.Exporters.OtlpGrpc.SendBuffer,
+			MaxRetryCount:      conf.Exporters.OtlpGrpc.MaxRetryCount,
+			RetryWait:          conf.Exporters.OtlpGrpc.RetryWait,
+			ResourceAttributes: conf.Exporters.OtlpGrpc.ResourceAttributes,
 		})
 		if err != nil {
 			ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("%s err=%+v", "otlpgrpc connection error", err)))

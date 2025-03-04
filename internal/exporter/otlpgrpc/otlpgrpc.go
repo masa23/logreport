@@ -10,6 +10,7 @@ import (
 
 	"github.com/hnakamur/ltsvlog"
 	"github.com/masa23/logreport/internal/exporter"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -23,17 +24,19 @@ type OtlpGrpcExporter struct {
 	stopCh       chan struct{}
 	config       *OtlpGrpcExporterConfig
 	otlpExporter *otlpmetricgrpc.Exporter
+	res          *resource.Resource
 	isRunning    atomic.Bool
 }
 
 var _ exporter.Exporter = (*OtlpGrpcExporter)(nil)
 
 type OtlpGrpcExporterConfig struct {
-	URL           string
-	TLS           *OtlpGrpcExporterConfigTLS
-	SendBuffer    int
-	MaxRetryCount int
-	RetryWait     time.Duration
+	URL                string
+	TLS                *OtlpGrpcExporterConfigTLS
+	SendBuffer         int
+	MaxRetryCount      int
+	RetryWait          time.Duration
+	ResourceAttributes map[string]string
 }
 
 type OtlpGrpcExporterConfigTLS struct {
@@ -69,11 +72,21 @@ func NewOtlpGrpcExporter(ctx context.Context, config *OtlpGrpcExporterConfig) (*
 		return nil, err
 	}
 
+	attributes := []attribute.KeyValue{}
+	for k, v := range config.ResourceAttributes {
+		attributes = append(attributes, attribute.String(k, v))
+	}
+	res, err := resource.New(ctx, resource.WithAttributes(attributes...))
+	if err != nil {
+		return nil, err
+	}
+
 	e := &OtlpGrpcExporter{
 		metricsCh:    make(chan []*exporter.Metric, config.SendBuffer),
 		stopCh:       make(chan struct{}),
 		config:       config,
 		otlpExporter: otlpExporter,
+		res:          res,
 		isRunning:    atomic.Bool{},
 	}
 	e.isRunning.Store(false)
@@ -137,7 +150,7 @@ func (e *OtlpGrpcExporter) send(ctx context.Context, metrics []*exporter.Metric)
 	retryCount := 0
 	for ; retryCount < e.config.MaxRetryCount; retryCount++ {
 		if err := e.otlpExporter.Export(ctx, &metricdata.ResourceMetrics{
-			Resource: resource.Default(),
+			Resource: e.res,
 			ScopeMetrics: []metricdata.ScopeMetrics{{
 				Metrics: otlpMetrics,
 			}},
