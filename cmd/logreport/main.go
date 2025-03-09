@@ -268,13 +268,17 @@ func readLog() {
 				}
 			}
 			if len(metrics) > 0 {
-				if err := graphiteExporter.Export(context.TODO(), metrics); err != nil {
-					// graphiteExporter.Exportの実装上エラーは戻らない
-					panic("unreachable code reached")
+				if graphiteExporter != nil {
+					if err := graphiteExporter.Export(context.TODO(), metrics); err != nil {
+						// graphiteExporter.Exportの実装上エラーは戻らない
+						panic("unreachable code reached")
+					}
 				}
-				if err := otlpGrpcExporter.Export(context.TODO(), metrics); err != nil {
-					// otlpGrpcExporter.Exportの実装上エラーは戻らない
-					panic("unreachable code reached")
+				if otlpGrpcExporter != nil {
+					if err := otlpGrpcExporter.Export(context.TODO(), metrics); err != nil {
+						// otlpGrpcExporter.Exportの実装上エラーは戻らない
+						panic("unreachable code reached")
+					}
 				}
 			}
 			lock.Unlock()
