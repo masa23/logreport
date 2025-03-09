@@ -12,10 +12,14 @@ extensions:
   health_check:
 
 exporters:
-  prometheusremotewrite:
-    endpoint: http://prometheus:9090/api/v1/write
-    resource_to_telemetry_conversion:
-      enabled: true
+  influxdb:
+    endpoint: http://influxdb:8086
+    timeout: 500ms
+    org: admin
+    bucket: bucket1
+    token: admin-token
+    metrics_schema: telegraf-prometheus-v2
+
   debug:
 
 service:
@@ -24,4 +28,4 @@ service:
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [prometheusremotewrite, debug]
+      exporters: [influxdb, debug]
