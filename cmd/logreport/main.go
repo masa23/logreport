@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"flag"
@@ -125,11 +126,25 @@ func main() {
 			}
 
 		}
+		var clientCertificate *tls.Certificate
+		if conf.Exporters.OtlpGrpc.TLS.ClientCertificate != "" && conf.Exporters.OtlpGrpc.TLS.ClientCertificateKey != "" {
+			cert, err := tls.LoadX509KeyPair(conf.Exporters.OtlpGrpc.TLS.ClientCertificate, conf.Exporters.OtlpGrpc.TLS.ClientCertificateKey)
+			if err != nil {
+				ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("failed to LoadX509KeyPair cert=%s key=%s err=%+v",
+					conf.Exporters.OtlpGrpc.TLS.ClientCertificate,
+					conf.Exporters.OtlpGrpc.TLS.ClientCertificateKey,
+					err,
+				)))
+				os.Exit(1)
+			}
+			clientCertificate = &cert
+		}
 		otlpGrpcExporter, err = otlpgrpc.NewOtlpGrpcExporter(context.TODO(), &otlpgrpc.OtlpGrpcExporterConfig{
 			URL: conf.Exporters.OtlpGrpc.URL,
 			TLS: &otlpgrpc.OtlpGrpcExporterConfigTLS{
-				Insecure:   conf.Exporters.OtlpGrpc.TLS.Insecure,
-				CACertPool: caCertPool,
+				Insecure:          conf.Exporters.OtlpGrpc.TLS.Insecure,
+				CACertPool:        caCertPool,
+				ClientCertificate: clientCertificate,
 			},
 			SendBuffer:         conf.Exporters.OtlpGrpc.SendBuffer,
 			MaxRetryCount:      conf.Exporters.OtlpGrpc.MaxRetryCount,
