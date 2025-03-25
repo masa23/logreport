@@ -30,6 +30,9 @@ Exporters:
   #  URL: addrs:///localhost:4317
   #  TLS:
   #    Insecure: true
+  #    # CACertificate: /path/to/ca.crt
+  #    # ClientCertificate: /path/to/client.crt
+  #    # ClientCertificateKey: /path/to/client.key
   #  SendBuffer: 1000
   #  MaxRetryCount: 10
   #  RetryWait: 1s
