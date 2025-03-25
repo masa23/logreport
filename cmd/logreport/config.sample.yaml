@@ -13,18 +13,39 @@ TimeParse: "02/Jan/2006:15:04:05 -0700"
 LogFormat: ltsv
 # LogFormat: json
 
-# metric send graphite
+# metric send graphite (DEPRECATED)
 Graphite:
   Host: "graphite.example.jp"
   Port: 2003
   Prefix: "sec.logreport.local"
   SendBuffer: 1000
 
+Exporters:
+  Graphite:
+    Host: localhost
+    Port: 2003
+    Prefix: "sec.logreport.local"
+    SendBuffer: 1000
+  #OtlpGrpc:
+  #  URL: addrs:///localhost:4317
+  #  TLS:
+  #    Insecure: true
+  #    # CACertificate: /path/to/ca.crt
+  #    # ClientCertificate: /path/to/client.crt
+  #    # ClientCertificateKey: /path/to/client.key
+  #  SendBuffer: 1000
+  #  MaxRetryCount: 10
+  #  RetryWait: 1s
+  #  ResourceAttributes:
+  #    service.name: example-service
+  #    server.address: localhost
+  #    key: example
+
 # Report
 Report:
- Interval: 1s
- Delay: 10s
- InitialReadPositionEnd: true
+  Interval: 1s
+  Delay: 10s
+  InitialReadPositionEnd: true
 
 # Summary Metrics
 Metrics:

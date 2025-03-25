@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"flag"
 	"os"
 	"os/signal"
@@ -18,12 +21,15 @@ import (
 	"github.com/masa23/logreport"
 	"github.com/masa23/logreport/internal/exporter"
 	"github.com/masa23/logreport/internal/exporter/graphite"
+	"github.com/masa23/logreport/internal/exporter/otlpgrpc"
+	_ "github.com/ophum/grpc-go-addrs-resolver"
 )
 
 var (
 	conf             *logreport.Config
 	confLock         = new(sync.Mutex)
 	graphiteExporter *graphite.GraphiteExporter
+	otlpGrpcExporter *otlpgrpc.OtlpGrpcExporter
 )
 
 type sumData struct {
@@ -71,20 +77,86 @@ func main() {
 	pid := os.Getpid()
 	ltsvlog.Logger.Info().Fmt("msg", "start logreport pid=%d", pid).Log()
 
-	graphiteExporter, err = graphite.NewGraphiteExporter(&graphite.GraphiteExporterConfig{
-		Host:          conf.Graphite.Host,
-		Port:          conf.Graphite.Port,
-		Prefix:        conf.Graphite.Prefix,
-		SendBuffer:    conf.Graphite.SendBuffer,
-		MaxRetryCount: 5,
-		RetryWait:     time.Second,
-	})
-	if err != nil {
-		ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("%s err=%+v", "graphite connection error", err)))
-		os.Exit(1)
-	}
+	if conf.Exporters.Graphite != nil || conf.Graphite != nil {
+		var exporterConfig *graphite.GraphiteExporterConfig
+		if conf.Exporters.Graphite != nil {
+			exporterConfig = &graphite.GraphiteExporterConfig{
+				Host:          conf.Exporters.Graphite.Host,
+				Port:          conf.Exporters.Graphite.Port,
+				Prefix:        conf.Exporters.Graphite.Prefix,
+				SendBuffer:    conf.Exporters.Graphite.SendBuffer,
+				MaxRetryCount: 5,
+				RetryWait:     time.Second,
+			}
+		}
 
-	go graphiteExporter.Start(context.TODO())
+		// 互換性を維持するため`Exporters.Graphite`が設定されていない場合は、古いフィールドの設定値を利用します。
+		if conf.Exporters.Graphite == nil {
+			ltsvlog.Logger.Info().String("msg", "Warning: the config field `Graphite` is deprecated. Please use `Exporters.Graphite` instead").Log()
+			exporterConfig = &graphite.GraphiteExporterConfig{
+				Host:          conf.Graphite.Host,
+				Port:          conf.Graphite.Port,
+				Prefix:        conf.Graphite.Prefix,
+				SendBuffer:    conf.Graphite.SendBuffer,
+				MaxRetryCount: 5,
+				RetryWait:     time.Second,
+			}
+		}
+
+		graphiteExporter, err = graphite.NewGraphiteExporter(exporterConfig)
+		if err != nil {
+			ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("%s err=%+v", "graphite connection error", err)))
+			os.Exit(1)
+		}
+
+		go graphiteExporter.Start(context.TODO())
+	}
+	if conf.Exporters.OtlpGrpc != nil {
+		var caCertPool *x509.CertPool
+		if conf.Exporters.OtlpGrpc.TLS.CACertificate != "" {
+			caPem, err := os.ReadFile(conf.Exporters.OtlpGrpc.TLS.CACertificate)
+			if err != nil {
+				ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("failed to read otlpgrpc CA Certificate %s err=%+v", conf.Exporters.OtlpGrpc.TLS.CACertificate, err)))
+				os.Exit(1)
+			}
+			caCertPool = x509.NewCertPool()
+			if !caCertPool.AppendCertsFromPEM(caPem) {
+				ltsvlog.Logger.Err(errors.New("failed to load ca certificate"))
+				os.Exit(1)
+			}
+
+		}
+		var clientCertificate *tls.Certificate
+		if conf.Exporters.OtlpGrpc.TLS.ClientCertificate != "" && conf.Exporters.OtlpGrpc.TLS.ClientCertificateKey != "" {
+			cert, err := tls.LoadX509KeyPair(conf.Exporters.OtlpGrpc.TLS.ClientCertificate, conf.Exporters.OtlpGrpc.TLS.ClientCertificateKey)
+			if err != nil {
+				ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("failed to LoadX509KeyPair cert=%s key=%s err=%+v",
+					conf.Exporters.OtlpGrpc.TLS.ClientCertificate,
+					conf.Exporters.OtlpGrpc.TLS.ClientCertificateKey,
+					err,
+				)))
+				os.Exit(1)
+			}
+			clientCertificate = &cert
+		}
+		otlpGrpcExporter, err = otlpgrpc.NewOtlpGrpcExporter(context.TODO(), &otlpgrpc.OtlpGrpcExporterConfig{
+			URL: conf.Exporters.OtlpGrpc.URL,
+			TLS: &otlpgrpc.OtlpGrpcExporterConfigTLS{
+				Insecure:          conf.Exporters.OtlpGrpc.TLS.Insecure,
+				CACertPool:        caCertPool,
+				ClientCertificate: clientCertificate,
+			},
+			SendBuffer:         conf.Exporters.OtlpGrpc.SendBuffer,
+			MaxRetryCount:      conf.Exporters.OtlpGrpc.MaxRetryCount,
+			RetryWait:          conf.Exporters.OtlpGrpc.RetryWait,
+			ResourceAttributes: conf.Exporters.OtlpGrpc.ResourceAttributes,
+		})
+		if err != nil {
+			ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("%s err=%+v", "otlpgrpc connection error", err)))
+			os.Exit(1)
+		}
+		go otlpGrpcExporter.Start(context.TODO())
+	}
 	go readLog()
 
 	for {
@@ -211,9 +283,17 @@ func readLog() {
 				}
 			}
 			if len(metrics) > 0 {
-				if err := graphiteExporter.Export(context.TODO(), metrics); err != nil {
-					// graphiteExporter.Exportの実装上エラーは戻らない
-					panic("unreachable code reached")
+				if graphiteExporter != nil {
+					if err := graphiteExporter.Export(context.TODO(), metrics); err != nil {
+						// graphiteExporter.Exportの実装上エラーは戻らない
+						panic("unreachable code reached")
+					}
+				}
+				if otlpGrpcExporter != nil {
+					if err := otlpGrpcExporter.Export(context.TODO(), metrics); err != nil {
+						// otlpGrpcExporter.Exportの実装上エラーは戻らない
+						panic("unreachable code reached")
+					}
 				}
 			}
 			lock.Unlock()

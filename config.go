@@ -29,12 +29,34 @@ type Config struct {
 	PosFile       string          `yaml:"PosFile"`
 	LogBufferSize int             `yaml:"LogBufferSize"`
 	LogFormat     string          `yaml:"LogFormat"`
-	Graphite      configGraphite  `yaml:"Graphite"`
+	Graphite      *configGraphite `yaml:"Graphite"`
 	Report        configReport    `yaml:"Report"`
 	Metrics       []configMetrics `yaml:"Metrics"`
 	TimeColumn    string          `yaml:"TimeColumn"`
 	TimeParse     string          `yaml:"TimeParse"`
 	LogColumns    []logColumn
+	Exporters     configExporters `yaml:"Exporters"`
+}
+
+type configExporters struct {
+	Graphite *configGraphite `yaml:"Graphite"`
+	OtlpGrpc *configOtlpGrpc `yaml:"OtlpGrpc"`
+}
+
+type configOtlpGrpcTLS struct {
+	Insecure             bool   `yaml:"Insecure"`
+	CACertificate        string `yaml:"CACertificate"`
+	ClientCertificate    string `yaml:"ClientCertificate"`
+	ClientCertificateKey string `yaml:"ClientCertificateKey"`
+}
+
+type configOtlpGrpc struct {
+	URL                string             `yaml:"URL"`
+	TLS                *configOtlpGrpcTLS `yaml:"TLS"`
+	SendBuffer         int                `yaml:"SendBuffer"`
+	MaxRetryCount      int                `yaml:"MaxRetryCount"`
+	RetryWait          time.Duration      `yaml:"RetryWait"`
+	ResourceAttributes map[string]string  `yaml:"ResourceAttributes"`
 }
 
 // logColumn
