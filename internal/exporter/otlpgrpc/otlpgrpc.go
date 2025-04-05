@@ -5,13 +5,16 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/hnakamur/ltsvlog"
 	"github.com/masa23/logreport/internal/exporter"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"google.golang.org/grpc"
@@ -20,12 +23,14 @@ import (
 )
 
 type OtlpGrpcExporter struct {
-	metricsCh    chan []*exporter.Metric
-	stopCh       chan struct{}
-	config       *OtlpGrpcExporterConfig
-	otlpExporter *otlpmetricgrpc.Exporter
-	res          *resource.Resource
-	isRunning    atomic.Bool
+	metricsCh            chan []*exporter.Metric
+	stopCh               chan struct{}
+	config               *OtlpGrpcExporterConfig
+	otlpExporter         *otlpmetricgrpc.Exporter
+	res                  *resource.Resource
+	isRunning            atomic.Bool
+	metricCountGauge     metric.Int64Gauge
+	exportElapsedMSGauge metric.Float64Gauge
 }
 
 var _ exporter.Exporter = (*OtlpGrpcExporter)(nil)
@@ -90,8 +95,47 @@ func NewOtlpGrpcExporter(ctx context.Context, config *OtlpGrpcExporterConfig) (*
 		isRunning:    atomic.Bool{},
 	}
 	e.isRunning.Store(false)
+	if err := e.initOtelMetrics(); err != nil {
+		return nil, err
+	}
 	return e, nil
 
+}
+
+func (e *OtlpGrpcExporter) initOtelMetrics() error {
+	var meter = otel.Meter("otlpgrpc-exporter")
+	bufferUsed, err := meter.Int64ObservableGauge("buffer_used")
+	if err != nil {
+		return err
+	}
+	bufferSize, err := meter.Int64ObservableGauge("buffer_size")
+	if err != nil {
+		return err
+	}
+	e.metricCountGauge, err = meter.Int64Gauge("metric_count")
+	if err != nil {
+		return err
+	}
+	e.exportElapsedMSGauge, err = meter.Float64Gauge("export_elapsed_ms")
+	if err != nil {
+		return err
+	}
+
+	var lock sync.Mutex
+	if _, err := meter.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
+		lock.Lock()
+		defer lock.Unlock()
+
+		o.ObserveInt64(bufferUsed, int64(len(e.metricsCh)))
+		o.ObserveInt64(bufferSize, int64(cap(e.metricsCh)))
+		return nil
+	},
+		bufferUsed,
+		bufferSize,
+	); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (e *OtlpGrpcExporter) Export(ctx context.Context, metrics []*exporter.Metric) error {
@@ -114,9 +158,13 @@ func (e *OtlpGrpcExporter) Start(ctx context.Context) {
 	for {
 		select {
 		case metrics := <-e.metricsCh:
+			s := time.Now()
 			if err := e.send(ctx, metrics); err != nil {
 				ltsvlog.Logger.Err(err)
 			}
+			elapsed := time.Since(s)
+			e.metricCountGauge.Record(ctx, int64(len(metrics)))
+			e.exportElapsedMSGauge.Record(ctx, float64(elapsed)/float64(time.Millisecond))
 		case <-e.stopCh:
 			// ctxはCancelされているため新しくcontext.Contextを作成する
 			stopCtx := context.Background()

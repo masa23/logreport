@@ -77,6 +77,21 @@ func main() {
 	pid := os.Getpid()
 	ltsvlog.Logger.Info().Fmt("msg", "start logreport pid=%d", pid).Log()
 
+	ctx := context.Background()
+	if conf.OpenTelemetry.Enabeld {
+		shutdown, err := initOtelMetrics(ctx)
+		if err != nil {
+			ltsvlog.Logger.Err(err)
+			os.Exit(1)
+		}
+		defer func() {
+			if err := shutdown(context.Background()); err != nil {
+				ltsvlog.Logger.Err(err)
+				os.Exit(1)
+			}
+		}()
+	}
+
 	if conf.Exporters.Graphite != nil || conf.Graphite != nil {
 		var exporterConfig *graphite.GraphiteExporterConfig
 		if conf.Exporters.Graphite != nil {

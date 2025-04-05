@@ -35,7 +35,8 @@ type Config struct {
 	TimeColumn    string          `yaml:"TimeColumn"`
 	TimeParse     string          `yaml:"TimeParse"`
 	LogColumns    []logColumn
-	Exporters     configExporters `yaml:"Exporters"`
+	Exporters     configExporters     `yaml:"Exporters"`
+	OpenTelemetry configOpenTelemetry `yaml:"OpenTelemetry"`
 }
 
 type configExporters struct {
@@ -92,6 +93,19 @@ type configMetricsFilter struct {
 	Values    []string `yaml:"Values"`
 	DataType  string   `yaml:"DataType"`
 	Bool      bool     `yaml:"Bool"`
+}
+
+type configOpenTelemetry struct {
+	Enabeld bool                    `yaml:"Enabled"`
+	URL     string                  `yaml:"URL"`
+	TLS     *configOpenTelemetryTLS `yaml:"TLS"`
+}
+
+type configOpenTelemetryTLS struct {
+	Insecure             bool   `yaml:"Insecure"`
+	CACertificate        string `yaml:"CACertificate"`
+	ClientCertificate    string `yaml:"ClientCertificate"`
+	ClientCertificateKey string `yaml:"ClientCertificateKey"`
 }
 
 // ConfigLoad is loading yaml config
