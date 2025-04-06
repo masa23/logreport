@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hnakamur/errstack"
 	"github.com/hnakamur/ltsvlog"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
@@ -15,6 +16,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -59,11 +61,19 @@ func initOtelMetrics(ctx context.Context) (shutdown func(ctx context.Context) er
 		})
 	}
 
+	instanceID, err := uuid.NewRandom()
+	if err != nil {
+		return nil, err
+	}
 	res, err := resource.New(ctx,
 		resource.WithOS(),
 		resource.WithProcess(),
 		resource.WithContainer(),
 		resource.WithHost(),
+		resource.WithAttributes(
+			semconv.ServiceName("logreport-internal-exporter"),
+			semconv.ServiceInstanceID(instanceID.String()),
+		),
 	)
 	if err != nil {
 		return nil, err

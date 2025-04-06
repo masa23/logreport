@@ -20,6 +20,11 @@ exporters:
     token: admin-token
     metrics_schema: telegraf-prometheus-v2
 
+  prometheusremotewrite:
+    endpoint: http://victoriametrics:8428/api/v1/write
+    resource_to_telemetry_conversion:
+      enabled: true
+
   debug:
 
 service:
@@ -28,4 +33,4 @@ service:
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [influxdb, debug]
+      exporters: [influxdb, debug, prometheusremotewrite]

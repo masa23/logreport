@@ -22,6 +22,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+const ScopeName = "github.com/masa23/logreport/internal/exporter/otlpgrpc"
+
 type OtlpGrpcExporter struct {
 	metricsCh            chan []*exporter.Metric
 	stopCh               chan struct{}
@@ -29,7 +31,7 @@ type OtlpGrpcExporter struct {
 	otlpExporter         *otlpmetricgrpc.Exporter
 	res                  *resource.Resource
 	isRunning            atomic.Bool
-	metricCountGauge     metric.Int64Gauge
+	exportedMetricsGauge metric.Int64Gauge
 	exportElapsedMSGauge metric.Float64Gauge
 }
 
@@ -103,20 +105,20 @@ func NewOtlpGrpcExporter(ctx context.Context, config *OtlpGrpcExporterConfig) (*
 }
 
 func (e *OtlpGrpcExporter) initOtelMetrics() error {
-	var meter = otel.Meter("otlpgrpc-exporter")
-	bufferUsed, err := meter.Int64ObservableGauge("buffer_used")
+	var meter = otel.Meter(ScopeName)
+	bufferUsed, err := meter.Int64ObservableGauge("otlpgrpc_exporter_buffer_used")
 	if err != nil {
 		return err
 	}
-	bufferSize, err := meter.Int64ObservableGauge("buffer_size")
+	bufferSize, err := meter.Int64ObservableGauge("otlpgrpc_exporter_buffer_size")
 	if err != nil {
 		return err
 	}
-	e.metricCountGauge, err = meter.Int64Gauge("metric_count")
+	e.exportedMetricsGauge, err = meter.Int64Gauge("otlpgrpc_exporter_exported_metrics")
 	if err != nil {
 		return err
 	}
-	e.exportElapsedMSGauge, err = meter.Float64Gauge("export_elapsed_ms")
+	e.exportElapsedMSGauge, err = meter.Float64Gauge("otlpgrpc_exporter_export_elapsed_ms")
 	if err != nil {
 		return err
 	}
@@ -163,7 +165,7 @@ func (e *OtlpGrpcExporter) Start(ctx context.Context) {
 				ltsvlog.Logger.Err(err)
 			}
 			elapsed := time.Since(s)
-			e.metricCountGauge.Record(ctx, int64(len(metrics)))
+			e.exportedMetricsGauge.Record(ctx, int64(len(metrics)))
 			e.exportElapsedMSGauge.Record(ctx, float64(elapsed)/float64(time.Millisecond))
 		case <-e.stopCh:
 			// ctxはCancelされているため新しくcontext.Contextを作成する

@@ -10,14 +10,20 @@ import (
 	"github.com/hnakamur/ltsvlog"
 	"github.com/marpaia/graphite-golang"
 	"github.com/masa23/logreport/internal/exporter"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 )
 
+const ScopeName = "github.com/masa23/logreport/internal/exporter/graphite"
+
 type GraphiteExporter struct {
-	metricsCh chan []*exporter.Metric
-	stopCh    chan struct{}
-	config    *GraphiteExporterConfig
-	g         *graphite.Graphite
-	isRunning atomic.Bool
+	metricsCh            chan []*exporter.Metric
+	stopCh               chan struct{}
+	config               *GraphiteExporterConfig
+	g                    *graphite.Graphite
+	isRunning            atomic.Bool
+	exportedMetricsGauge metric.Int64Gauge
+	exportElapsedMSGauge metric.Float64Gauge
 }
 
 var _ exporter.Exporter = (*GraphiteExporter)(nil)
@@ -44,7 +50,42 @@ func NewGraphiteExporter(config *GraphiteExporterConfig) (*GraphiteExporter, err
 		isRunning: atomic.Bool{},
 	}
 	e.isRunning.Store(false)
+	if err := e.initOtelMetrics(); err != nil {
+		return nil, err
+	}
 	return e, nil
+}
+
+func (e *GraphiteExporter) initOtelMetrics() error {
+	var meter = otel.Meter(ScopeName)
+	bufferUsed, err := meter.Int64ObservableGauge("graphite_exporter_buffer_used")
+	if err != nil {
+		return err
+	}
+	bufferSize, err := meter.Int64ObservableGauge("graphite_exporter_buffer_size")
+	if err != nil {
+		return err
+	}
+	e.exportedMetricsGauge, err = meter.Int64Gauge("graphite_exporter_exported_metrics")
+	if err != nil {
+		return err
+	}
+	e.exportElapsedMSGauge, err = meter.Float64Gauge("graphite_exporter_export_elapsed_ms")
+	if err != nil {
+		return err
+	}
+
+	if _, err := meter.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
+		o.ObserveInt64(bufferUsed, int64(len(e.metricsCh)))
+		o.ObserveInt64(bufferSize, int64(cap(e.metricsCh)))
+		return nil
+	},
+		bufferUsed,
+		bufferSize,
+	); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (e *GraphiteExporter) Export(ctx context.Context, metrics []*exporter.Metric) error {
@@ -69,9 +110,13 @@ func (e *GraphiteExporter) Start(ctx context.Context) {
 	for {
 		select {
 		case metrics := <-e.metricsCh:
+			s := time.Now()
 			if err := e.send(metrics); err != nil {
 				ltsvlog.Logger.Err(err)
 			}
+			elapsed := time.Since(s)
+			e.exportedMetricsGauge.Record(ctx, int64(len(metrics)))
+			e.exportElapsedMSGauge.Record(ctx, float64(elapsed)/float64(time.Millisecond))
 		case <-e.stopCh:
 			ltsvlog.Logger.Info().String("msg", "graphite exporter receive stop signal")
 			// これ以上channelに書き込まれないようにcloseする
