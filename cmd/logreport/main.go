@@ -86,7 +86,7 @@ func main() {
 				Prefix:        conf.Exporters.Graphite.Prefix,
 				SendBuffer:    conf.Exporters.Graphite.SendBuffer,
 				MaxRetryCount: conf.Exporters.Graphite.MaxRetryCount,
-				RetryWait:     conf.Graphite.RetryWait,
+				RetryWait:     conf.Exporters.Graphite.RetryWait,
 			}
 		}
 
