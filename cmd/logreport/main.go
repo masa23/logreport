@@ -85,7 +85,7 @@ func main() {
 				Port:          conf.Exporters.Graphite.Port,
 				Prefix:        conf.Exporters.Graphite.Prefix,
 				SendBuffer:    conf.Exporters.Graphite.SendBuffer,
-				MaxRetryCount: 5,
+				MaxRetryCount: conf.Exporters.Graphite.MaxRetryCount,
 				RetryWait:     time.Second,
 			}
 		}
@@ -98,7 +98,7 @@ func main() {
 				Port:          conf.Graphite.Port,
 				Prefix:        conf.Graphite.Prefix,
 				SendBuffer:    conf.Graphite.SendBuffer,
-				MaxRetryCount: 5,
+				MaxRetryCount: conf.Graphite.MaxRetryCount,
 				RetryWait:     time.Second,
 			}
 		}
@@ -191,7 +191,7 @@ func main() {
 				Port:          conf.Graphite.Port,
 				Prefix:        conf.Graphite.Prefix,
 				SendBuffer:    conf.Graphite.SendBuffer,
-				MaxRetryCount: 5,
+				MaxRetryCount: conf.Graphite.MaxRetryCount,
 				RetryWait:     time.Second,
 			})
 			if err != nil {

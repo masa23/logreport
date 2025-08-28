@@ -19,6 +19,8 @@ Graphite:
   Port: 2003
   Prefix: "sec.logreport.local"
   SendBuffer: 1000
+  MaxRetryCount: 5
+  RetryWait: 1s
 
 Exporters:
   Graphite:
@@ -26,6 +28,8 @@ Exporters:
     Port: 2003
     Prefix: "sec.logreport.local"
     SendBuffer: 1000
+    MaxRetryCount: 5
+    RetryWait: 1s
   #OtlpGrpc:
   #  URL: addrs:///localhost:4317
   #  TLS:
