@@ -66,10 +66,12 @@ type logColumn struct {
 }
 
 type configGraphite struct {
-	Host       string `yaml:"Host"`
-	Port       int    `yaml:"Port"`
-	Prefix     string `yaml:"Prefix"`
-	SendBuffer int    `yaml:"SendBuffer"`
+	Host          string        `yaml:"Host"`
+	Port          int           `yaml:"Port"`
+	Prefix        string        `yaml:"Prefix"`
+	SendBuffer    int           `yaml:"SendBuffer"`
+	MaxRetryCount int           `yaml:"MaxRetryCount"`
+	RetryWait     time.Duration `yaml:"RetryWait"`
 }
 
 type configReport struct {
@@ -163,6 +165,24 @@ func defaultConfig(conf *Config) {
 	}
 	if conf.LogBufferSize == 0 {
 		conf.LogBufferSize = 4096
+	}
+	if conf.Graphite != nil && conf.Graphite.MaxRetryCount == 0 {
+		conf.Graphite.MaxRetryCount = 5
+	}
+	if conf.Exporters.Graphite != nil && conf.Exporters.Graphite.MaxRetryCount == 0 {
+		conf.Exporters.Graphite.MaxRetryCount = 5
+	}
+	if conf.Graphite != nil && conf.Graphite.RetryWait == 0 {
+		conf.Graphite.RetryWait = time.Second
+	}
+	if conf.Exporters.Graphite != nil && conf.Exporters.Graphite.RetryWait == 0 {
+		conf.Exporters.Graphite.RetryWait = time.Second
+	}
+	if conf.Exporters.OtlpGrpc != nil && conf.Exporters.OtlpGrpc.MaxRetryCount == 0 {
+		conf.Exporters.OtlpGrpc.MaxRetryCount = 5
+	}
+	if conf.Exporters.OtlpGrpc != nil && conf.Exporters.OtlpGrpc.RetryWait == 0 {
+		conf.Exporters.OtlpGrpc.RetryWait = time.Second
 	}
 }
 

@@ -85,8 +85,8 @@ func main() {
 				Port:          conf.Exporters.Graphite.Port,
 				Prefix:        conf.Exporters.Graphite.Prefix,
 				SendBuffer:    conf.Exporters.Graphite.SendBuffer,
-				MaxRetryCount: 5,
-				RetryWait:     time.Second,
+				MaxRetryCount: conf.Exporters.Graphite.MaxRetryCount,
+				RetryWait:     conf.Exporters.Graphite.RetryWait,
 			}
 		}
 
@@ -98,8 +98,8 @@ func main() {
 				Port:          conf.Graphite.Port,
 				Prefix:        conf.Graphite.Prefix,
 				SendBuffer:    conf.Graphite.SendBuffer,
-				MaxRetryCount: 5,
-				RetryWait:     time.Second,
+				MaxRetryCount: conf.Graphite.MaxRetryCount,
+				RetryWait:     conf.Graphite.RetryWait,
 			}
 		}
 
@@ -191,8 +191,8 @@ func main() {
 				Port:          conf.Graphite.Port,
 				Prefix:        conf.Graphite.Prefix,
 				SendBuffer:    conf.Graphite.SendBuffer,
-				MaxRetryCount: 5,
-				RetryWait:     time.Second,
+				MaxRetryCount: conf.Graphite.MaxRetryCount,
+				RetryWait:     conf.Graphite.RetryWait,
 			})
 			if err != nil {
 				ltsvlog.Logger.Err(errstack.WithLV(errstack.Errorf("%s err=%+v", "graphite connection error", err)))
