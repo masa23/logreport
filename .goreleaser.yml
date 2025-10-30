@@ -49,6 +49,7 @@ nfpms:
       - deb
       - rpm
     bindir: /usr/bin
+    epoch: 1
     section: admin
     scripts:
       preinstall: misc/scripts/preinstall.sh
