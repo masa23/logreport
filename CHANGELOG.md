@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.1.3](https://github.com/masa23/logreport/compare/v0.1.2...v0.1.3) - 2025-10-30
+- epochが失われていた by @masa23 in https://github.com/masa23/logreport/pull/20
+
 ## [v0.1.2](https://github.com/masa23/logreport/compare/v0.1.1...v0.1.2) - 2025-09-30
 - Add tagpr by @masa23 in https://github.com/masa23/logreport/pull/18
 
