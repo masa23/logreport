@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.1.4](https://github.com/masa23/logreport/compare/v0.1.3...v0.1.4) - 2026-01-09
+- ItemCountのメトリックのキーの扱いをexporterに委ねる by @ophum in https://github.com/masa23/logreport/pull/22
+
 ## [v0.1.3](https://github.com/masa23/logreport/compare/v0.1.2...v0.1.3) - 2025-10-30
 - epochが失われていた by @masa23 in https://github.com/masa23/logreport/pull/20
 
