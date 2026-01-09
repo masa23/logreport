@@ -32,7 +32,10 @@ var (
 	otlpGrpcExporter *otlpgrpc.OtlpGrpcExporter
 )
 
+type ItemCount map[string]int64
+
 type sumData struct {
+	ItemCount map[string]ItemCount
 	Int       map[string]int64
 	Float     map[string]float64
 	timestamp time.Time
@@ -269,17 +272,27 @@ func readLog() {
 				}
 				for key, value := range m.Int {
 					metrics = append(metrics, &exporter.Metric{
-						Key:       key,
+						ItemName:  key,
 						Value:     value,
 						Timestamp: ts,
 					})
 				}
 				for key, value := range m.Float {
 					metrics = append(metrics, &exporter.Metric{
-						Key:       key,
+						ItemName:  key,
 						Value:     value,
 						Timestamp: ts,
 					})
+				}
+				for itemName, itemCount := range m.ItemCount {
+					for itemValue, value := range itemCount {
+						metrics = append(metrics, &exporter.Metric{
+							ItemName:  itemName,
+							ItemValue: itemValue,
+							Value:     value,
+							Timestamp: ts,
+						})
+					}
 				}
 			}
 			if len(metrics) > 0 {
@@ -323,6 +336,8 @@ func readLog() {
 		lock.Lock()
 		if _, ok := sum[t]; !ok {
 			sum[t] = &sumData{
+				ItemCount: make(map[string]ItemCount),
+
 				Int:       make(map[string]int64),
 				Float:     make(map[string]float64),
 				timestamp: time.Now(),
@@ -396,7 +411,10 @@ func readLog() {
 					}
 				}
 			case logreport.MetricTypeItemCount:
-				sum[t].Int[metric.ItemName+"."+log.String(metric.LogColumn)]++
+				if _, ok := sum[t].ItemCount[metric.ItemName]; !ok {
+					sum[t].ItemCount[metric.ItemName] = ItemCount{}
+				}
+				sum[t].ItemCount[metric.ItemName][log.String(metric.LogColumn)]++
 			}
 
 		}
