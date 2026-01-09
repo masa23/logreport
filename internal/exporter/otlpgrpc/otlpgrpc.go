@@ -12,6 +12,7 @@ import (
 	"github.com/masa23/logreport/internal/exporter"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/sdk/instrumentation"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"google.golang.org/grpc"
@@ -37,6 +38,7 @@ type OtlpGrpcExporterConfig struct {
 	MaxRetryCount      int
 	RetryWait          time.Duration
 	ResourceAttributes map[string]string
+	Prefix             string
 }
 
 type OtlpGrpcExporterConfigTLS struct {
@@ -146,14 +148,12 @@ func (e *OtlpGrpcExporter) Start(ctx context.Context) {
 
 func (e *OtlpGrpcExporter) send(ctx context.Context, metrics []*exporter.Metric) error {
 	ltsvlog.Logger.Debug().Fmt("msg", "Sending %d metrics to otlpgrpc", len(metrics)).Log()
-	otlpMetrics := e.convertOtlpMetrics(metrics)
+	otlpScopeMetrics := e.convertOtlpScopeMetrics(metrics)
 	retryCount := 0
 	for ; retryCount < e.config.MaxRetryCount; retryCount++ {
 		if err := e.otlpExporter.Export(ctx, &metricdata.ResourceMetrics{
-			Resource: e.res,
-			ScopeMetrics: []metricdata.ScopeMetrics{{
-				Metrics: otlpMetrics,
-			}},
+			Resource:     e.res,
+			ScopeMetrics: otlpScopeMetrics,
 		}); err == nil {
 			return nil
 		} else {
@@ -165,8 +165,8 @@ func (e *OtlpGrpcExporter) send(ctx context.Context, metrics []*exporter.Metric)
 	return fmt.Errorf("failed to send otlpgrpc, retry %d", retryCount)
 }
 
-func (e *OtlpGrpcExporter) convertOtlpMetrics(metrics []*exporter.Metric) []metricdata.Metrics {
-	ometrics := make([]metricdata.Metrics, 0, len(metrics))
+func (e *OtlpGrpcExporter) convertOtlpScopeMetrics(metrics []*exporter.Metric) []metricdata.ScopeMetrics {
+	ometrics := make([]metricdata.ScopeMetrics, 0, len(metrics))
 	for _, m := range metrics {
 		var data metricdata.Aggregation
 		switch v := m.Value.(type) {
@@ -192,9 +192,21 @@ func (e *OtlpGrpcExporter) convertOtlpMetrics(metrics []*exporter.Metric) []metr
 			continue
 		}
 
-		ometrics = append(ometrics, metricdata.Metrics{
-			Name: m.Key,
-			Data: data,
+		name := m.ItemName
+		if e.config.Prefix != "" {
+			name = fmt.Sprintf("%s.%s", e.config.Prefix, name)
+		}
+		ometrics = append(ometrics, metricdata.ScopeMetrics{
+			Scope: instrumentation.Scope{
+				Name: "github.com/masa23/logreport/internal/exporter/otlpgrpc",
+				Attributes: attribute.NewSet(
+					attribute.String("logreport.item_count.item_value", m.ItemValue),
+				),
+			},
+			Metrics: []metricdata.Metrics{{
+				Name: name,
+				Data: data,
+			}},
 		})
 	}
 	return ometrics

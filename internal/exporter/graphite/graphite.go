@@ -132,8 +132,12 @@ func (e *GraphiteExporter) convertGraphiteMetrics(metrics []*exporter.Metric) []
 			continue
 		}
 
+		name := fmt.Sprintf("%s.%s", e.config.Prefix, m.ItemName)
+		if m.ItemValue != "" {
+			name = fmt.Sprintf("%s.%s", name, m.ItemValue)
+		}
 		gmetrics = append(gmetrics, graphite.Metric{
-			Name:      fmt.Sprintf("%s.%s", e.config.Prefix, m.Key),
+			Name:      name,
 			Value:     value,
 			Timestamp: m.Timestamp.Unix(),
 		})

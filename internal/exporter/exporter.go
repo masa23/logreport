@@ -7,8 +7,9 @@ import (
 
 type Metric struct {
 	Timestamp time.Time
-	Key       string
-	Value     any // int64 or float64
+	ItemName  string
+	ItemValue string // ItemCount
+	Value     any    // int64 or float64
 }
 
 type Exporter interface {
