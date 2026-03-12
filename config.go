@@ -36,6 +36,12 @@ type Config struct {
 	TimeParse     string          `yaml:"TimeParse"`
 	LogColumns    []logColumn
 	Exporters     configExporters `yaml:"Exporters"`
+	API           configAPI       `yaml:"API"`
+}
+
+type configAPI struct {
+	Enabled    bool   `yaml:"Enabled"`
+	SocketPath string `yaml:"SocketPath"`
 }
 
 type configExporters struct {

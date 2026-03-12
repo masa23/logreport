@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"flag"
+	"net"
 	"os"
 	"os/signal"
 	"sort"
@@ -19,6 +20,7 @@ import (
 	"github.com/masa23/gotail"
 
 	"github.com/masa23/logreport"
+	"github.com/masa23/logreport/internal/api"
 	"github.com/masa23/logreport/internal/exporter"
 	"github.com/masa23/logreport/internal/exporter/graphite"
 	"github.com/masa23/logreport/internal/exporter/otlpgrpc"
@@ -30,6 +32,7 @@ var (
 	confLock         = new(sync.Mutex)
 	graphiteExporter *graphite.GraphiteExporter
 	otlpGrpcExporter *otlpgrpc.OtlpGrpcExporter
+	metricsAPI       *api.API
 )
 
 type ItemCount map[string]int64
@@ -80,6 +83,26 @@ func main() {
 	pid := os.Getpid()
 	ltsvlog.Logger.Info().Fmt("msg", "start logreport pid=%d", pid).Log()
 
+	if conf.API.Enabled {
+		os.Remove(conf.API.SocketPath)
+		l, err := net.Listen("unix", conf.API.SocketPath)
+		if err != nil {
+			ltsvlog.Logger.Err(err)
+			os.Exit(1)
+		}
+		defer l.Close()
+		if err := os.Chmod(conf.API.SocketPath, 0o700); err != nil {
+			ltsvlog.Logger.Err(err)
+			os.Exit(1)
+		}
+		metricsAPI = api.NewAPI()
+		go func() {
+			if err := metricsAPI.Serve(l); err != nil {
+				ltsvlog.Logger.Err(err)
+				os.Exit(1)
+			}
+		}()
+	}
 	if conf.Exporters.Graphite != nil || conf.Graphite != nil {
 		var exporterConfig *graphite.GraphiteExporterConfig
 		if conf.Exporters.Graphite != nil {
@@ -308,6 +331,10 @@ func readLog() {
 						panic("unreachable code reached")
 					}
 				}
+			}
+
+			if metricsAPI != nil {
+				metricsAPI.SetLastMetrics(metrics)
 			}
 			lock.Unlock()
 		}
