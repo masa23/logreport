@@ -53,7 +53,7 @@ API:
   # 内部API 有効/無効
   Enabled: false
   # 内部APIを有効にする場合にListenするUnix Domain Socket
-  # SocketPath: "var/run/logreport-api.sock"
+  # SocketPath: "/var/run/logreport-api.sock"
 
 # 読み込むログファイルのパス
 LogFile: "/var/log/nginx/access.log"
