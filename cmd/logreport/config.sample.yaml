@@ -6,7 +6,7 @@ LogBufferSize: 4096
 
 API:
   Enabled: false
-  # SocketPath: "var/run/logreport-api.sock"
+  # SocketPath: "/var/run/logreport-api.sock"
 
 # Read log file path. Posisiton file path.
 LogFile: "/var/log/nginx/access.log"
