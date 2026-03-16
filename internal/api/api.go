@@ -8,15 +8,19 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hnakamur/ltsvlog"
 	"github.com/masa23/logreport/internal/exporter"
+	"golang.org/x/sync/singleflight"
 )
 
 type API struct {
-	lastMetrics map[string]*lastMetric
-	mu          sync.RWMutex
-	version     int
+	lastMetrics   map[string]*lastMetric
+	lastTimestamp time.Time
+	mu            sync.RWMutex
+	version       int
+	sf            singleflight.Group
 }
 
 type lastMetric struct {
@@ -29,14 +33,35 @@ func NewAPI() *API {
 		lastMetrics: map[string]*lastMetric{},
 		mu:          sync.RWMutex{},
 		version:     0,
+		sf:          singleflight.Group{},
 	}
 }
 
 func (a *API) SetLastMetrics(metrics []*exporter.Metric) {
+	_, _, _ = a.sf.Do("setLastMetrics", func() (any, error) {
+		a.setLastMetrics(metrics)
+		return nil, nil
+	})
+}
+
+func (a *API) setLastMetrics(metrics []*exporter.Metric) {
+	lastTimestamp := time.Time{}
+	for _, m := range metrics {
+		if m.Timestamp.Compare(lastTimestamp) > 0 {
+			lastTimestamp = m.Timestamp
+		}
+	}
+
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	a.lastTimestamp = lastTimestamp
 	a.version++
 	for _, m := range metrics {
+		// NOTE: metricsには複数のtimestampのメトリクスが入る可能性があるため、
+		// その中で最新の時刻のメトリクスを採用する
+		if !m.Timestamp.Equal(lastTimestamp) {
+			continue
+		}
 		key := m.ItemName
 		if m.ItemValue != "" {
 			key += "." + m.ItemValue
@@ -73,8 +98,11 @@ func (a *API) recover() {
 		return
 	}
 }
+
 func (a *API) getKeys(w http.ResponseWriter, r *http.Request) {
 	defer a.recover()
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 
 	keys := []string{}
 	for k := range a.lastMetrics {
@@ -112,6 +140,7 @@ func (a *API) getLastMetrics(w http.ResponseWriter, r *http.Request) {
 		}
 		res[k] = v
 	}
+	res["time"] = a.lastTimestamp
 
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(&res); err != nil {

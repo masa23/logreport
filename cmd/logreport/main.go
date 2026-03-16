@@ -334,7 +334,7 @@ func readLog() {
 			}
 
 			if metricsAPI != nil {
-				metricsAPI.SetLastMetrics(metrics)
+				go metricsAPI.SetLastMetrics(metrics)
 			}
 			lock.Unlock()
 		}
