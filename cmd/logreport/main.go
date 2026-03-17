@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"sort"
@@ -98,8 +99,10 @@ func main() {
 		metricsAPI = api.NewAPI()
 		go func() {
 			if err := metricsAPI.Serve(l); err != nil {
+				if errors.Is(err, http.ErrServerClosed) {
+					return
+				}
 				ltsvlog.Logger.Err(err)
-				os.Exit(1)
 			}
 		}()
 	}
