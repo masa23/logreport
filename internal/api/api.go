@@ -87,7 +87,11 @@ func (a *API) Serve(l net.Listener) error {
 	mu.HandleFunc("/keys", a.getKeys)
 	mu.HandleFunc("/metrics", a.getLastMetrics)
 	sv := http.Server{
-		Handler: mu,
+		Handler:           mu,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 	return sv.Serve(l)
 }
@@ -101,13 +105,14 @@ func (a *API) recover() {
 
 func (a *API) getKeys(w http.ResponseWriter, r *http.Request) {
 	defer a.recover()
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 
-	keys := []string{}
+	keys := make([]string, 0, len(a.lastMetrics))
+	a.mu.RLock()
 	for k := range a.lastMetrics {
 		keys = append(keys, k)
 	}
+	a.mu.RUnlock()
+
 	slices.Sort(keys)
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(&keys); err != nil {
@@ -119,20 +124,21 @@ func (a *API) getLastMetrics(w http.ResponseWriter, r *http.Request) {
 	defer a.recover()
 
 	keysStr := r.URL.Query().Get("keys")
+	var keys []string
 	if keysStr == "" {
-		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte("{}")); err != nil {
-			ltsvlog.Logger.Err(err)
-		}
-		return
+		keys = []string{}
+	} else {
+		keys = strings.Split(keysStr, ",")
 	}
-
-	keys := strings.Split(keysStr, ",")
 
 	res := map[string]any{}
 	a.mu.RLock()
-	defer a.mu.RUnlock()
 	for _, k := range keys {
+		k = strings.TrimSpace(k)
+		if k == "" {
+			continue
+		}
+
 		var v any = 0
 		m, ok := a.lastMetrics[k]
 		if ok && m.Metric.Value != nil {
@@ -140,7 +146,10 @@ func (a *API) getLastMetrics(w http.ResponseWriter, r *http.Request) {
 		}
 		res[k] = v
 	}
-	res["time"] = a.lastTimestamp
+	if !a.lastTimestamp.IsZero() {
+		res["time"] = a.lastTimestamp
+	}
+	a.mu.RUnlock()
 
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(&res); err != nil {

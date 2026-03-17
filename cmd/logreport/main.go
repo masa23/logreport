@@ -85,7 +85,22 @@ func main() {
 	ltsvlog.Logger.Info().Fmt("msg", "start logreport pid=%d", pid).Log()
 
 	if conf.API.Enabled {
-		os.Remove(conf.API.SocketPath)
+		f, err := os.Lstat(conf.API.SocketPath)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				ltsvlog.Logger.Err(err)
+				os.Exit(1)
+			}
+		} else {
+			if f.Mode()&os.ModeSocket == 0 {
+				ltsvlog.Logger.Err(errstack.New("API socket path exists and is not a unix socket"))
+				os.Exit(1)
+			}
+			if err := os.Remove(conf.API.SocketPath); err != nil {
+				ltsvlog.Logger.Err(err)
+				os.Exit(1)
+			}
+		}
 		l, err := net.Listen("unix", conf.API.SocketPath)
 		if err != nil {
 			ltsvlog.Logger.Err(err)
