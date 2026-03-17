@@ -48,6 +48,13 @@ ErrorLogFile: "/var/log/logreport.log"
 # ログバッファサイズ
 LogBufferSize: 4096
 
+# 内部API
+API:
+  # 内部API 有効/無効
+  Enabled: false
+  # 内部APIを有効にする場合にListenするUnix Domain Socket
+  # SocketPath: "/var/run/logreport-api.sock"
+
 # 読み込むログファイルのパス
 LogFile: "/var/log/nginx/access.log"
 
@@ -165,6 +172,37 @@ Metrics:
     Type: "min"
     DataType: "float"
     LogColumn: "upstream_request_time"
+```
+
+### 内部API
+
+設定ファイルで以下のように設定することで有効にすることができます。
+```yaml
+API:
+  Enabled: true
+  SocketPath: "/var/run/logreport-api.sock"
+```
+
+#### 最新のメトリックのキー一覧
+```
+curl --unix-socket /var/run/logreport-api.sock http://localhost/keys
+```
+
+```
+["bytes_sent","hit-count.HIT","hit-count.MISS","http.request","http.status.205","http.status.300","http.status.301","http.status.410","http.status.414","http.status.426","http.status.431","http.status.504","https.request","https.status.429","upstream_request_time_max"]
+```
+
+#### 最新のメトリックを取得
+
+keysにキーを指定することで取得可能です。
+
+```
+curl --unix-socket /var/run/logreport-api.sock http://localhost/metrics?keys=http.request,https.request,http.status.200,https.status.200
+
+```
+
+```json
+{"http.request":5,"http.status.200":0,"https.request":5,"https.status.200":1,"time":"2026-03-16T21:29:42+09:00"}
 ```
 
 ## ライセンス

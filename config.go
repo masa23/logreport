@@ -3,6 +3,7 @@ package logreport
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -36,6 +37,12 @@ type Config struct {
 	TimeParse     string          `yaml:"TimeParse"`
 	LogColumns    []logColumn
 	Exporters     configExporters `yaml:"Exporters"`
+	API           configAPI       `yaml:"API"`
+}
+
+type configAPI struct {
+	Enabled    bool   `yaml:"Enabled"`
+	SocketPath string `yaml:"SocketPath"`
 }
 
 type configExporters struct {
@@ -112,6 +119,13 @@ func ConfigLoad(file string) (*Config, error) {
 
 	if !isValidLogFormat(conf.LogFormat) {
 		return conf, fmt.Errorf("LogFormat type %s is unsupported", conf.LogFormat)
+	}
+
+	if conf.API.Enabled {
+		socketPath := strings.TrimSpace(conf.API.SocketPath)
+		if socketPath == "" {
+			return conf, fmt.Errorf("API.Enabled is true but API.SocketPath is empty")
+		}
 	}
 
 	for i, metric := range conf.Metrics {
