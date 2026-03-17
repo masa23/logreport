@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.1.5](https://github.com/masa23/logreport/compare/v0.1.4...v0.1.5) - 2026-03-17
+- 最後のメトリクスを取得するAPIを実装する by @ophum in https://github.com/masa23/logreport/pull/24
+- Bump go.opentelemetry.io/otel/sdk from 1.34.0 to 1.40.0 by @dependabot[bot] in https://github.com/masa23/logreport/pull/26
+
 ## [v0.1.4](https://github.com/masa23/logreport/compare/v0.1.3...v0.1.4) - 2026-01-09
 - ItemCountのメトリックのキーの扱いをexporterに委ねる by @ophum in https://github.com/masa23/logreport/pull/22
 
