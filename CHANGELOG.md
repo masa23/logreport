@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.1.7](https://github.com/masa23/logreport/compare/v0.1.6...v0.1.7) - 2026-10-23
+
+- Bump google.golang.org/grpc from 1.79.3 to 1.83.2 by @dependabot[bot] in https://github.com/masa23/logreport/pull/30
+
 ## [v0.1.6](https://github.com/masa23/logreport/compare/v0.1.5...v0.1.6) - 2026-05-01
 - Bump google.golang.org/grpc from 1.70.0 to 1.79.3 by @dependabot[bot] in https://github.com/masa23/logreport/pull/27
 - Bump go.opentelemetry.io/otel/sdk from 1.40.0 to 1.43.0 by @dependabot[bot] in https://github.com/masa23/logreport/pull/29
